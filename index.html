@@ -1,0 +1,2624 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>InstructMatch 강사 포털</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+<!-- Google API 클라이언트 + Identity Services (OAuth 2.0 / Calendar API v3) -->
+<script src="https://apis.google.com/js/api.js" onload="gapiLoaded()" defer></script>
+<script src="https://accounts.google.com/gsi/client" onload="gisLoaded()" defer></script>
+
+<!-- Supabase 클라이언트 (v4.2 B-510 / B-801.2 매직 링크 인증) -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root {
+    --brand: #E11D48;
+    --brand-50: #FFF1F2;
+    --brand-100: #FFE4E6;
+    --brand-600: #E11D48;
+    --brand-700: #BE123C;
+
+    --emerald-50: #ECFDF5;
+    --emerald-500: #10B981;
+    --emerald-700: #047857;
+
+    --amber-50: #FFFBEB;
+    --amber-500: #F59E0B;
+    --amber-700: #B45309;
+
+    --indigo-50: #EEF2FF;
+    --indigo-500: #6366F1;
+    --indigo-700: #4338CA;
+
+    --rose-50: #FFF1F2;
+    --rose-500: #F43F5E;
+
+    --slate-50: #F8FAFC;
+    --slate-100: #F1F5F9;
+    --slate-200: #E2E8F0;
+    --slate-300: #CBD5E1;
+    --slate-400: #94A3B8;
+    --slate-500: #64748B;
+    --slate-600: #475569;
+    --slate-700: #334155;
+    --slate-800: #1E293B;
+    --slate-900: #0F172A;
+
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.04);
+    --shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+    --shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.06);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    background: var(--slate-50);
+    color: var(--slate-800);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button { font-family: inherit; cursor: pointer; border: none; background: none; }
+  input, select, textarea { font-family: inherit; font-size: inherit; }
+
+  /* === 로그인 화면 === */
+  .signin-screen {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, #FFF1F2 0%, #FAFAFA 100%);
+    padding: 24px;
+  }
+  .signin-card {
+    width: 100%;
+    max-width: 420px;
+    background: white;
+    border-radius: 20px;
+    padding: 48px 40px;
+    box-shadow: var(--shadow-lg);
+    text-align: center;
+  }
+  .signin-logo {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 24px;
+    background: var(--brand);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-weight: 800;
+    font-size: 28px;
+  }
+  .signin-card h1 { font-size: 24px; margin-bottom: 8px; color: var(--slate-900); }
+  .signin-card p { color: var(--slate-500); margin-bottom: 32px; }
+  .google-btn {
+    width: 100%;
+    padding: 14px 20px;
+    border: 1px solid var(--slate-300);
+    border-radius: var(--radius-sm);
+    background: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    font-weight: 600;
+    color: var(--slate-700);
+    transition: all 0.15s;
+  }
+  .google-btn:hover { background: var(--slate-50); border-color: var(--slate-400); }
+  .signin-info {
+    margin-top: 24px;
+    padding: 16px;
+    background: var(--slate-50);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    color: var(--slate-500);
+    text-align: left;
+    line-height: 1.6;
+  }
+
+  /* === 포털 레이아웃 === */
+  .portal { display: none; min-height: 100vh; }
+  .portal.active { display: block; }
+
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: white;
+    border-bottom: 1px solid var(--slate-200);
+    height: 64px;
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+  }
+  .topbar-inner {
+    max-width: 1280px;
+    margin: 0 auto;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 800;
+    font-size: 17px;
+    color: var(--slate-900);
+  }
+  .brand-mark {
+    width: 32px;
+    height: 32px;
+    background: var(--brand);
+    border-radius: 8px;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    font-weight: 800;
+  }
+  .nav { display: flex; align-items: center; gap: 4px; }
+  .nav-item {
+    padding: 8px 14px;
+    border-radius: var(--radius-sm);
+    font-weight: 500;
+    color: var(--slate-600);
+    position: relative;
+    transition: all 0.15s;
+  }
+  .nav-item:hover { background: var(--slate-100); color: var(--slate-900); }
+  .nav-item.active { background: var(--brand-50); color: var(--brand-700); font-weight: 600; }
+  .nav-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    background: var(--brand);
+    color: white;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-left: 6px;
+  }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .bell {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--slate-600);
+    position: relative;
+  }
+  .bell:hover { background: var(--slate-100); }
+  .bell-dot {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 8px;
+    height: 8px;
+    background: var(--brand);
+    border-radius: 50%;
+    border: 2px solid white;
+  }
+  .profile-chip {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 4px;
+    border-radius: 999px;
+    background: var(--slate-100);
+    font-weight: 500;
+    color: var(--slate-700);
+    font-size: 13px;
+  }
+  .avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--brand);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+  /* === 컨텐츠 === */
+  .content {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 32px 24px 80px;
+  }
+  .page { display: none; }
+  .page.active { display: block; }
+
+  .page-header { margin-bottom: 24px; }
+  .page-title { font-size: 24px; font-weight: 700; color: var(--slate-900); margin-bottom: 4px; }
+  .page-sub { color: var(--slate-500); font-size: 14px; }
+
+  /* === 카드 === */
+  .card {
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--slate-900);
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  /* === 스코프 배너 === */
+  .scope-banner {
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 16px;
+  }
+  .scope-banner-head { display:flex; align-items:center; gap:6px; font-size:13px; color:var(--slate-600); margin-bottom:10px; }
+  .scope-banner-body { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .scope-step {
+    display:inline-flex; align-items:center; gap:6px;
+    padding: 6px 12px; border-radius: 999px;
+    background: var(--slate-100); color: var(--slate-600); font-size:13px; font-weight:500;
+  }
+  .scope-step.active { background: var(--brand-50); color: var(--brand); font-weight:700; border:1px solid var(--brand-100); }
+  .scope-step.muted { background:transparent; color: var(--slate-400); border:1px dashed var(--slate-300); }
+  .scope-num {
+    display:inline-flex; align-items:center; justify-content:center;
+    width:18px; height:18px; border-radius:50%;
+    background: var(--slate-300); color: white; font-size:11px; font-weight:800;
+  }
+  .scope-step.active .scope-num { background: var(--brand); }
+  .scope-step.muted .scope-num { background: var(--slate-300); }
+  .scope-arrow { color: var(--slate-300); font-size:14px; }
+
+  /* === Soft Lock 배너 === */
+  .soft-lock-banner {
+    background: linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%);
+    border: 1px solid #FCD34D;
+    border-radius: var(--radius);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .soft-lock-banner:hover { box-shadow: var(--shadow-md); }
+  .soft-lock-banner.urgent {
+    background: linear-gradient(135deg, #FFF1F2 0%, #FEE2E2 100%);
+    border-color: #FCA5A5;
+  }
+  .soft-lock-text { display: flex; align-items: center; gap: 12px; }
+  .soft-lock-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--amber-500);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+  }
+  .soft-lock-banner.urgent .soft-lock-icon { background: var(--brand); }
+  .soft-lock-title { font-weight: 700; color: var(--slate-900); margin-bottom: 2px; }
+  .soft-lock-desc { font-size: 13px; color: var(--slate-600); }
+
+  /* === 대시보드 요약 === */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  .summary-card {
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 20px;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .summary-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .summary-label { font-size: 13px; color: var(--slate-500); margin-bottom: 8px; font-weight: 500; }
+  .summary-value { font-size: 32px; font-weight: 800; color: var(--slate-900); line-height: 1; }
+  .summary-value .unit { font-size: 16px; font-weight: 600; color: var(--slate-500); margin-left: 4px; }
+  .summary-card.alert .summary-value { color: var(--brand); }
+  .summary-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+  .summary-card.alert .summary-icon { background: var(--brand-50); color: var(--brand); }
+  .summary-card.warning .summary-icon { background: var(--indigo-50); color: var(--indigo-500); }
+  .summary-card.success .summary-icon { background: var(--emerald-50); color: var(--emerald-500); }
+
+  .dashboard-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+  }
+
+  /* === 일정 리스트 === */
+  .schedule-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--slate-100);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .schedule-row:last-child { border-bottom: none; }
+  .schedule-row:hover { background: var(--slate-50); margin: 0 -10px; padding: 14px 10px; border-radius: var(--radius-sm); }
+  .schedule-date {
+    width: 56px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .schedule-day { font-size: 11px; color: var(--slate-500); font-weight: 600; text-transform: uppercase; }
+  .schedule-num { font-size: 22px; font-weight: 800; color: var(--slate-900); line-height: 1; margin-top: 2px; }
+  .schedule-info { flex: 1; min-width: 0; }
+  .schedule-label { font-weight: 600; color: var(--slate-900); margin-bottom: 2px; }
+  .schedule-meta { font-size: 12px; color: var(--slate-500); }
+  .schedule-ttl { font-size: 12px; color: var(--amber-700); font-weight: 600; }
+
+  /* === 배지 === */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1.4;
+    white-space: nowrap;
+  }
+  .badge-confirmed { background: var(--emerald-50); color: var(--emerald-700); }
+  .badge-soft_lock { background: var(--amber-50); color: var(--amber-700); }
+  .badge-unavailable { background: var(--rose-50); color: var(--rose-500); }
+  .badge-proposed { background: var(--brand-50); color: var(--brand); }
+  .badge-negotiating { background: var(--indigo-50); color: var(--indigo-700); }
+  .badge-rejected { background: var(--slate-100); color: var(--slate-600); }
+  .badge-warning { background: var(--amber-50); color: var(--amber-700); }
+
+  /* === 캘린더 === */
+  .calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .cal-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .cal-month {
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--slate-900);
+    min-width: 140px;
+    text-align: center;
+  }
+  .icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    color: var(--slate-600);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.15s;
+  }
+  .icon-btn:hover { background: var(--slate-100); color: var(--slate-900); }
+
+  .cal-legend { display: flex; gap: 14px; font-size: 12px; color: var(--slate-600); }
+  .cal-legend-item { display: flex; align-items: center; gap: 6px; }
+  .cal-dot { width: 10px; height: 10px; border-radius: 3px; }
+  .cal-dot.confirmed { background: var(--emerald-500); }
+  .cal-dot.soft_lock { background: var(--amber-500); }
+  .cal-dot.unavailable { background: var(--rose-500); }
+
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+  }
+  .cal-weekday {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--slate-500);
+    padding: 8px 0;
+  }
+  .cal-weekday.sun { color: var(--rose-500); }
+  .cal-weekday.sat { color: var(--indigo-500); }
+  .cal-day {
+    aspect-ratio: 1;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-sm);
+    padding: 8px;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    flex-direction: column;
+    background: white;
+    position: relative;
+  }
+  .cal-day:hover { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-50); }
+  .cal-day.muted { background: var(--slate-50); color: var(--slate-400); cursor: default; }
+  .cal-day.muted:hover { border-color: var(--slate-200); box-shadow: none; }
+  .cal-day-num { font-size: 13px; font-weight: 700; color: var(--slate-700); }
+  .cal-day.muted .cal-day-num { color: var(--slate-400); }
+  .cal-day.today .cal-day-num { color: var(--brand); }
+  .cal-day.today::before {
+    content: '';
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 6px;
+    height: 6px;
+    background: var(--brand);
+    border-radius: 50%;
+  }
+  .cal-day-event {
+    margin-top: auto;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 4px;
+    border-radius: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cal-day-event.confirmed { background: var(--emerald-500); color: white; }
+  .cal-day-event.soft_lock { background: var(--amber-500); color: white; }
+  .cal-day-event.unavailable { background: var(--rose-500); color: white; }
+
+  /* === 칸반 === */
+  .kanban {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .kanban-col {
+    background: var(--slate-100);
+    border-radius: var(--radius);
+    padding: 16px;
+    min-height: 480px;
+  }
+  .kanban-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+    padding: 0 4px;
+  }
+  .kanban-title { font-weight: 700; color: var(--slate-800); font-size: 14px; }
+  .kanban-count {
+    background: white;
+    color: var(--slate-700);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 999px;
+  }
+  .recruit-card {
+    background: white;
+    border-radius: var(--radius-sm);
+    padding: 14px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    border-left: 3px solid transparent;
+    transition: all 0.15s;
+    box-shadow: var(--shadow-sm);
+  }
+  .recruit-card:hover { box-shadow: var(--shadow-md); transform: translateY(-1px); }
+  .recruit-card.unread { border-left-color: var(--brand); }
+  .recruit-card.urgent { box-shadow: 0 0 0 2px var(--amber-500), var(--shadow-sm); }
+  .recruit-category {
+    font-size: 11px;
+    color: var(--brand);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .recruit-name { font-weight: 700; color: var(--slate-900); margin-bottom: 6px; line-height: 1.4; }
+  .recruit-meta { font-size: 12px; color: var(--slate-500); display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+  .recruit-footer { display: flex; align-items: center; justify-content: space-between; }
+
+  /* === 버튼 === */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    font-size: 14px;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
+  .btn-primary { background: var(--brand); color: white; }
+  .btn-primary:hover { background: var(--brand-700); }
+  .btn-secondary { background: white; color: var(--slate-700); border-color: var(--slate-300); }
+  .btn-secondary:hover { background: var(--slate-50); border-color: var(--slate-400); }
+  .btn-danger { background: white; color: var(--rose-500); border-color: var(--rose-500); }
+  .btn-danger:hover { background: var(--rose-50); }
+  .btn-success { background: var(--emerald-500); color: white; }
+  .btn-success:hover { background: var(--emerald-700); }
+  .btn-ghost { background: transparent; color: var(--slate-600); }
+  .btn-ghost:hover { background: var(--slate-100); color: var(--slate-900); }
+  .btn-sm { padding: 6px 12px; font-size: 12px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* === 뷰 토글 === */
+  .view-toggle {
+    display: inline-flex;
+    background: var(--slate-100);
+    padding: 3px;
+    border-radius: var(--radius-sm);
+  }
+  .view-toggle button {
+    padding: 6px 14px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--slate-600);
+  }
+  .view-toggle button.active { background: white; color: var(--slate-900); box-shadow: var(--shadow-sm); }
+
+  /* === 리스트 뷰 === */
+  .recruit-list-item {
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius-sm);
+    padding: 16px 20px;
+    margin-bottom: 10px;
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    gap: 16px;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .recruit-list-item:hover { box-shadow: var(--shadow); border-color: var(--brand-100); }
+  .recruit-list-item.unread { border-left: 3px solid var(--brand); }
+
+  /* === 상세 모달 / 페이지 === */
+  .detail-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+  }
+  .info-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--slate-100);
+    font-size: 14px;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { color: var(--slate-500); font-weight: 500; }
+  .info-value { color: var(--slate-900); font-weight: 500; }
+
+  .action-bar {
+    display: flex;
+    gap: 8px;
+    margin-top: 16px;
+  }
+
+  /* === 수락 결과 모달 === */
+  .result-row { padding: 6px 0; font-size: 13px; color: var(--slate-700); display:flex; align-items:center; gap:8px; }
+
+  /* === 메일 뷰어 === */
+  .mail-meta { background: var(--slate-50); border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px; }
+  .mail-meta-row { display:grid; grid-template-columns:60px 1fr; gap:6px; padding:2px 0; }
+  .mail-meta-row > span:first-child { color: var(--slate-500); font-weight:600; }
+  .mail-body { padding: 16px; border:1px solid var(--slate-200); border-radius:8px; font-size:14px; line-height:1.7; color:var(--slate-800); }
+
+  /* === Audit Trail === */
+  .audit-list { display:flex; flex-direction:column; gap:10px; }
+  .audit-row { display:flex; gap:10px; align-items:flex-start; }
+  .audit-dot {
+    width:10px; height:10px; border-radius:50%;
+    margin-top:5px; flex-shrink:0;
+    background: var(--slate-300);
+  }
+  .audit-dot.done { background: var(--emerald-500); box-shadow: 0 0 0 3px var(--emerald-50); }
+  .audit-dot.pending { background: var(--amber-500); box-shadow: 0 0 0 3px var(--amber-50); }
+  .audit-when { font-size: 11px; color: var(--slate-500); font-weight: 600; }
+  .audit-what { font-size: 13px; color: var(--slate-800); font-weight: 500; }
+
+  /* === 칩 에디터 === */
+  .chip-grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    padding: 8px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--slate-300);
+    background: white;
+    color: var(--slate-700);
+    font-weight: 500;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .chip:hover { border-color: var(--brand); color: var(--brand); }
+  .chip.selected { background: var(--brand); color: white; border-color: var(--brand); }
+  .chip:disabled { opacity: 0.4; cursor: not-allowed; }
+  .chip:disabled:hover { border-color: var(--slate-300); color: var(--slate-400); }
+
+  /* === 입력 === */
+  .input, .select, .textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--slate-300);
+    border-radius: var(--radius-sm);
+    background: white;
+    color: var(--slate-900);
+    transition: all 0.15s;
+  }
+  .input:focus, .select:focus, .textarea:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-50); }
+  .textarea { resize: vertical; min-height: 80px; }
+  .field { margin-bottom: 16px; }
+  .field-label { display: block; font-size: 13px; font-weight: 600; color: var(--slate-700); margin-bottom: 6px; }
+  .field-help { font-size: 12px; color: var(--slate-500); margin-top: 4px; }
+
+  /* === 강의 이력 === */
+  .history-item {
+    display: grid;
+    grid-template-columns: 1fr 1fr 120px 80px 36px;
+    gap: 12px;
+    padding: 12px;
+    background: var(--slate-50);
+    border-radius: var(--radius-sm);
+    margin-bottom: 8px;
+    align-items: center;
+  }
+  .history-item .input, .history-item .select { padding: 8px 10px; font-size: 13px; }
+  .history-delete {
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-sm);
+    color: var(--rose-500);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .history-delete:hover { background: var(--rose-50); }
+
+  /* === 정산 업로더 === */
+  .uploader {
+    border: 2px dashed var(--slate-300);
+    border-radius: var(--radius);
+    padding: 40px 24px;
+    text-align: center;
+    transition: all 0.15s;
+    cursor: pointer;
+    background: var(--slate-50);
+  }
+  .uploader:hover, .uploader.dragover { border-color: var(--brand); background: var(--brand-50); }
+  .uploader-icon { font-size: 36px; margin-bottom: 12px; }
+  .uploader-title { font-weight: 700; color: var(--slate-900); margin-bottom: 4px; }
+  .uploader-desc { color: var(--slate-500); font-size: 13px; }
+
+  table.docs {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 24px;
+  }
+  table.docs th {
+    text-align: left;
+    padding: 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--slate-500);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: var(--slate-50);
+    border-bottom: 1px solid var(--slate-200);
+  }
+  table.docs td {
+    padding: 14px 12px;
+    border-bottom: 1px solid var(--slate-100);
+    font-size: 13px;
+  }
+
+  /* === 구글 캘린더 연결 카드 === */
+  .gcal-card {
+    background: linear-gradient(135deg, white 0%, #FAFAFA 100%);
+    border: 1px solid var(--slate-200);
+    border-radius: var(--radius);
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+  .gcal-info { display: flex; align-items: center; gap: 14px; }
+  .gcal-icon {
+    width: 48px;
+    height: 48px;
+    background: white;
+    border: 1px solid var(--slate-200);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+  }
+  .gcal-status { font-size: 13px; color: var(--slate-500); margin-top: 2px; }
+  .gcal-status.connected { color: var(--emerald-700); }
+
+  /* === 모달 === */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    z-index: 100;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-backdrop.active { display: flex; }
+  .modal {
+    background: white;
+    border-radius: 16px;
+    max-width: 500px;
+    width: 100%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+  }
+  .modal.lg { max-width: 720px; }
+  .modal-head {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--slate-200);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .modal-title { font-size: 16px; font-weight: 700; color: var(--slate-900); }
+  .modal-body { padding: 24px; }
+  .modal-foot {
+    padding: 16px 24px;
+    border-top: 1px solid var(--slate-200);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  /* === 토스트 === */
+  .toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    background: var(--slate-900);
+    color: white;
+    padding: 14px 20px;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    animation: slideIn 0.25s ease-out;
+  }
+  .toast.success { background: var(--emerald-700); }
+  .toast.error { background: var(--brand); }
+  @keyframes slideIn {
+    from { transform: translateX(20px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+
+  /* === 모바일 === */
+  @media (max-width: 768px) {
+    .topbar { padding: 0 16px; }
+    .nav { display: none; }
+    .content { padding: 20px 16px 60px; }
+    .summary-grid { grid-template-columns: 1fr; }
+    .dashboard-grid, .detail-grid { grid-template-columns: 1fr; }
+    .kanban { grid-template-columns: 1fr; }
+    .calendar-grid { gap: 3px; }
+    .cal-day { padding: 4px; }
+    .cal-day-num { font-size: 12px; }
+    .cal-day-event { display: none; }
+    .recruit-list-item { grid-template-columns: 1fr; gap: 8px; }
+    .history-item { grid-template-columns: 1fr 1fr; }
+    .mobile-nav { display: flex !important; }
+  }
+
+  .mobile-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: white;
+    border-top: 1px solid var(--slate-200);
+    z-index: 50;
+    padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+  }
+  .mobile-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 6px 4px;
+    font-size: 11px;
+    color: var(--slate-500);
+    position: relative;
+  }
+  .mobile-nav-item.active { color: var(--brand); }
+  .mobile-nav-item .ic { font-size: 18px; }
+  .mobile-nav-badge {
+    position: absolute;
+    top: 2px;
+    right: calc(50% - 18px);
+    background: var(--brand);
+    color: white;
+    border-radius: 9px;
+    font-size: 10px;
+    padding: 1px 5px;
+    font-weight: 700;
+  }
+</style>
+</head>
+<body>
+
+<!-- 로그인 화면 -->
+<div class="signin-screen" id="signinScreen">
+  <div class="signin-card">
+    <div class="signin-logo">IM</div>
+    <h1>강사 포털</h1>
+    <p>섭외 요청 확인부터 일정 확정까지, 클릭 한 번으로</p>
+    <!-- v4.2 갱신: Google OAuth 기본 로그인 (Supabase Auth Google Provider) -->
+    <div style="display:flex; flex-direction:column; gap:10px; margin:18px 0 12px;">
+      <button onclick="signIn()" style="padding:13px; border-radius:10px; font-weight:600; font-size:14px; display:flex; align-items:center; justify-content:center; gap:10px; background:#fff; border:1px solid var(--slate-300); color:var(--slate-900); cursor:pointer; transition:all .15s;"
+        onmouseover="this.style.background='#f9fafb'; this.style.borderColor='var(--slate-400)';"
+        onmouseout="this.style.background='#fff'; this.style.borderColor='var(--slate-300)';">
+        <svg width="20" height="20" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+        Google 계정으로 로그인
+      </button>
+      <div style="font-size:11px; color:var(--slate-500); text-align:center; line-height:1.5;">
+        Google 계정 이메일로 자동 연결됩니다.<br>매칭 서비스 캘린더와 동기화됩니다.
+      </div>
+    </div>
+    <div class="signin-info">
+      <strong>이 포털에서 하실 수 있는 일</strong><br>
+      ✓ 섭외 요청 확인 및 수락/거절 (메일 회신 대신 클릭 한 번)<br>
+      ✓ 확정 일정은 <b>.ics 내보내기</b>로 외부 캘린더(Google/Apple/Outlook)에 1초 등록<br>
+      ✓ 거절 대신 다른 날짜 역제안 가능<br>
+      ✓ 프로필·강의 이력 직접 업데이트<br>
+      <br>
+      <span style="color:var(--slate-400);">※ 계약서·정산 등 상세 행정은 기존처럼 운영팀이 메일로 안내해드립니다. 미등록 강사는 <u>matching@instructmatch.com</u> 으로 문의 부탁드립니다.</span>
+    </div>
+  </div>
+</div>
+
+<!-- 포털 본문 -->
+<div class="portal" id="portal">
+  <!-- 상단바 -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div style="display:flex; align-items:center; gap:32px;">
+        <div class="brand">
+          <div class="brand-mark">IM</div>
+          <span>강사 포털</span>
+        </div>
+        <nav class="nav">
+          <button class="nav-item active" data-page="dashboard" onclick="goto('dashboard')">대시보드</button>
+          <button class="nav-item" data-page="schedule" onclick="goto('schedule')">일정</button>
+          <button class="nav-item" data-page="recruitments" onclick="goto('recruitments')">
+            섭외 요청
+            <span class="nav-badge" id="navBadge">3</span>
+          </button>
+          <button class="nav-item" data-page="profile" onclick="goto('profile')">프로필</button>
+        </nav>
+      </div>
+      <div class="topbar-right">
+        <button class="bell" onclick="goto('recruitments')">
+          🔔
+          <span class="bell-dot"></span>
+        </button>
+        <div class="profile-chip">
+          <div class="avatar" id="profileAvatar">강</div>
+          <span id="profileName">강사</span>
+        </div>
+        <button class="btn-ghost btn btn-sm" onclick="signOut()">로그아웃</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="content">
+    <!-- 1. 대시보드 -->
+    <section class="page active" id="page-dashboard">
+      <div class="page-header">
+        <div class="page-title" id="dashboardGreeting">안녕하세요, 강사님 👋</div>
+        <div class="page-sub">이번 주 요약을 확인하고 섭외 요청에 응답해주세요</div>
+      </div>
+
+      <!-- 포털 범위 안내 (스코프 배너) -->
+      <div class="scope-banner">
+        <div class="scope-banner-head">
+          <span style="font-size:18px;">💡</span>
+          <strong>이 포털의 역할</strong>
+        </div>
+        <div class="scope-banner-body">
+          <div class="scope-step"><span class="scope-num">1</span><span>섭외 요청 확인</span></div>
+          <span class="scope-arrow">→</span>
+          <div class="scope-step active"><span class="scope-num">2</span><span>일정 확정 (수락/거절/날짜 변경 제안)</span></div>
+          <span class="scope-arrow">→</span>
+          <div class="scope-step muted"><span class="scope-num">3</span><span>이후 상세 협의는 메일로 (운영팀)</span></div>
+        </div>
+      </div>
+
+      <!-- Soft Lock 배너 -->
+      <div class="soft-lock-banner urgent" onclick="goto('recruitments')">
+        <div class="soft-lock-text">
+          <div class="soft-lock-icon">⚡</div>
+          <div>
+            <div class="soft-lock-title">2건의 섭외 요청이 확인을 기다리고 있어요</div>
+            <div class="soft-lock-desc">가장 빠른 만료까지 <strong>4시간 32분</strong> 남았습니다</div>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-sm">바로 확인 →</button>
+      </div>
+
+      <!-- 요약 카드 -->
+      <div class="summary-grid">
+        <div class="summary-card alert" onclick="goto('recruitments')">
+          <div class="summary-icon">📬</div>
+          <div class="summary-label">수락 대기</div>
+          <div class="summary-value"><span id="sumProposed">0</span><span class="unit">건</span></div>
+        </div>
+        <div class="summary-card warning" onclick="goto('recruitments')">
+          <div class="summary-icon">💭</div>
+          <div class="summary-label">검토 중</div>
+          <div class="summary-value"><span id="sumNegotiating">0</span><span class="unit">건</span></div>
+        </div>
+        <div class="summary-card success" onclick="goto('schedule')">
+          <div class="summary-icon">✅</div>
+          <div class="summary-label">이번 달 확정</div>
+          <div class="summary-value"><span id="sumConfirmedThisMonth">0</span><span class="unit">건</span></div>
+        </div>
+      </div>
+
+      <!-- 다가오는 일정 + 알림 -->
+      <div class="dashboard-grid">
+        <div class="card">
+          <div class="card-title">
+            <span>다가오는 일정 (향후 30일)</span>
+            <button class="btn-ghost btn btn-sm" onclick="goto('schedule')">전체 보기 →</button>
+          </div>
+          <div id="upcomingSchedules"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">최근 알림</div>
+          <div style="display:flex; flex-direction:column; gap:12px;">
+            <div style="padding:12px; border-radius:8px; background:var(--brand-50);">
+              <div style="font-size:12px; color:var(--brand); font-weight:700; margin-bottom:4px;">새 섭외 요청 · 10분 전</div>
+              <div style="font-weight:600; color:var(--slate-900);">삼성전자 사내 AI 부트캠프</div>
+              <div style="font-size:12px; color:var(--slate-500); margin-top:2px;">5/24 (토) · 4시간</div>
+            </div>
+            <div style="padding:12px; border-radius:8px; background:var(--amber-50);">
+              <div style="font-size:12px; color:var(--amber-700); font-weight:700; margin-bottom:4px;">Soft Lock 만료 임박 · 4h 후</div>
+              <div style="font-weight:600; color:var(--slate-900);">LG화학 데이터 분석 워크숍</div>
+              <div style="font-size:12px; color:var(--slate-500); margin-top:2px;">5/27 (화) · 3시간</div>
+            </div>
+            <div style="padding:12px; border-radius:8px; background:var(--slate-50);">
+              <div style="font-size:12px; color:var(--slate-500); font-weight:700; margin-bottom:4px;">캘린더 동기화 완료 · 1시간 전</div>
+              <div style="font-size:13px; color:var(--slate-600);">Google Calendar에서 3개 일정을 가져왔습니다</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 일정 -->
+    <section class="page" id="page-schedule">
+      <div class="page-header" style="display:flex; align-items:center; justify-content:space-between; gap:12px;">
+        <div>
+          <div class="page-title">일정 관리</div>
+          <div class="page-sub">날짜를 클릭해 가용성을 설정. 확정 일정은 .ics 파일로 외부 캘린더에 내보낼 수 있어요</div>
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="exportConfirmedAsIcs()" style="white-space:nowrap;">
+          📅 확정 일정 .ics 내보내기
+        </button>
+      </div>
+
+      <!-- v4 하이브리드: 외부 캘린더 연동 안내 (Phase 2) -->
+      <div class="gcal-card">
+        <div class="gcal-info">
+          <div class="gcal-icon">📅</div>
+          <div>
+            <div style="font-weight:700; color:var(--slate-900);">외부 캘린더 연동</div>
+            <div class="gcal-status" style="color:var(--slate-500);">현재는 사이트 전용 캘린더 + .ics 내보내기 (Google/Apple/Outlook 호환)</div>
+          </div>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn-ghost btn btn-sm" onclick="toast('Google Calendar 양방향 동기화는 Phase 2에서 제공됩니다.', 'info')">Google 연동 (Phase 2)</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="calendar-header">
+          <div class="cal-nav">
+            <button class="icon-btn" onclick="changeMonth(-1)">‹</button>
+            <div class="cal-month" id="calMonth">2026년 5월</div>
+            <button class="icon-btn" onclick="changeMonth(1)">›</button>
+          </div>
+          <div class="cal-legend">
+            <div class="cal-legend-item"><span class="cal-dot confirmed"></span>확정</div>
+            <div class="cal-legend-item"><span class="cal-dot soft_lock"></span>Soft Lock</div>
+            <div class="cal-legend-item"><span class="cal-dot unavailable"></span>불가</div>
+          </div>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+      </div>
+    </section>
+
+    <!-- 3. 섭외 요청 -->
+    <section class="page" id="page-recruitments">
+      <div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between;">
+        <div>
+          <div class="page-title">섭외 요청</div>
+          <div class="page-sub">기획팀이 보낸 섭외 건을 검토하고 응답하세요</div>
+        </div>
+        <div class="view-toggle">
+          <button class="active" onclick="toggleView('kanban', this)">칸반</button>
+          <button onclick="toggleView('list', this)">리스트</button>
+        </div>
+      </div>
+
+      <!-- 칸반 뷰 -->
+      <div id="recruitKanbanView">
+        <div class="kanban">
+          <div class="kanban-col">
+            <div class="kanban-head">
+              <div class="kanban-title">📬 수락 대기</div>
+              <span class="kanban-count" id="cnt-proposed">3</span>
+            </div>
+            <div id="col-proposed"></div>
+          </div>
+          <div class="kanban-col">
+            <div class="kanban-head">
+              <div class="kanban-title">💭 검토 중</div>
+              <span class="kanban-count" id="cnt-negotiating">1</span>
+            </div>
+            <div id="col-negotiating"></div>
+          </div>
+          <div class="kanban-col">
+            <div class="kanban-head">
+              <div class="kanban-title">✅ 확정</div>
+              <span class="kanban-count" id="cnt-confirmed">5</span>
+            </div>
+            <div id="col-confirmed"></div>
+          </div>
+        </div>
+
+        <details style="margin-top:24px;">
+          <summary style="cursor:pointer; color:var(--slate-500); font-size:13px; padding:8px 0;">거절한 섭외 보기 (2건)</summary>
+          <div id="col-rejected" style="margin-top:12px;"></div>
+        </details>
+      </div>
+
+      <!-- 리스트 뷰 -->
+      <div id="recruitListView" style="display:none;">
+        <div id="listContainer"></div>
+      </div>
+    </section>
+
+    <!-- 4. 프로필 -->
+    <section class="page" id="page-profile">
+      <div class="page-header" style="display:flex; align-items:flex-end; justify-content:space-between;">
+        <div>
+          <div class="page-title">프로필 관리</div>
+          <div class="page-sub">카테고리와 강의 이력을 직접 수정하실 수 있어요. 변경 즉시 매칭에 반영됩니다.</div>
+        </div>
+        <div id="saveStatus" style="font-size:13px; color:var(--emerald-700); font-weight:600; display:none;">✓ 저장됨 (방금 전)</div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-title">기본 정보</div>
+        <div class="info-row">
+          <div class="info-label">강사명</div>
+          <div class="info-value" id="profileBasicName">-</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">이메일</div>
+          <div class="info-value" id="profileBasicEmail">-</div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">연락처</div>
+          <div class="info-value">010-****-1234 <span style="font-size:11px; color:var(--slate-400); margin-left:8px;">(마스킹 표시)</span></div>
+        </div>
+        <div class="info-row">
+          <div class="info-label">평균 만족도</div>
+          <div class="info-value">⭐ 4.8 / 5.0</div>
+        </div>
+        <div style="font-size:12px; color:var(--slate-400); margin-top:8px;">기본 정보 수정은 운영팀에 문의해주세요</div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px;">
+        <div class="card-title">
+          <span>주력 카테고리</span>
+          <span id="catCount" style="font-size:12px; color:var(--slate-500); font-weight:500;">3 / 5 선택됨</span>
+        </div>
+        <div class="chip-grid" id="categoryGrid"></div>
+        <div class="field-help" style="margin-top:12px;">최대 5개까지 선택 가능합니다. 시맨틱 매칭 정확도에 직접 반영됩니다.</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <span>강의 이력</span>
+          <button class="btn btn-secondary btn-sm" onclick="addHistory()">+ 이력 추가</button>
+        </div>
+        <div id="historyList"></div>
+      </div>
+    </section>
+
+    <!-- 정산/계약 안내 - 운영팀 영역 -->
+    <div style="max-width:1280px; margin:40px auto 0; padding:0 24px;">
+      <div style="background:var(--slate-100); border-radius:12px; padding:20px 24px; display:flex; align-items:center; gap:16px;">
+        <div style="font-size:24px;">📄</div>
+        <div style="flex:1;">
+          <div style="font-weight:700; color:var(--slate-800); margin-bottom:2px;">계약서·정산은 운영팀에서 메일로 안내드립니다</div>
+          <div style="font-size:13px; color:var(--slate-500);">이 포털은 <strong>섭외 요청 확인과 일정 확정</strong>까지만 다룹니다. 강의 확정 이후 계약서 상신·강의안 협의·정산 서류는 운영팀이 별도 메일로 진행합니다.</div>
+        </div>
+        <a href="mailto:ops@instructmatch.com" class="btn btn-secondary btn-sm">운영팀 문의</a>
+      </div>
+    </div>
+  </main>
+
+  <!-- 모바일 하단 내비 -->
+  <nav class="mobile-nav">
+    <button class="mobile-nav-item active" data-page="dashboard" onclick="goto('dashboard')">
+      <span class="ic">🏠</span>
+      <span>홈</span>
+    </button>
+    <button class="mobile-nav-item" data-page="schedule" onclick="goto('schedule')">
+      <span class="ic">📅</span>
+      <span>일정</span>
+    </button>
+    <button class="mobile-nav-item" data-page="recruitments" onclick="goto('recruitments')">
+      <span class="ic">📬</span>
+      <span>섭외</span>
+      <span class="mobile-nav-badge">3</span>
+    </button>
+    <button class="mobile-nav-item" data-page="profile" onclick="goto('profile')">
+      <span class="ic">👤</span>
+      <span>프로필</span>
+    </button>
+  </nav>
+</div>
+
+<!-- 섭외 상세 모달 -->
+<div class="modal-backdrop" id="recruitModal" onclick="if(event.target===this)closeModal('recruitModal')">
+  <div class="modal lg">
+    <div class="modal-head">
+      <div>
+        <div style="font-size:11px; color:var(--brand); font-weight:700;" id="rmCategory">생성형 AI</div>
+        <div class="modal-title" id="rmTitle">섭외 상세</div>
+      </div>
+      <button class="icon-btn" onclick="closeModal('recruitModal')">✕</button>
+    </div>
+    <div class="modal-body" id="rmBody">
+      <!-- 동적 렌더링 -->
+    </div>
+  </div>
+</div>
+
+<!-- 가용성 토글 모달 -->
+<div class="modal-backdrop" id="availModal" onclick="if(event.target===this)closeModal('availModal')">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title" id="amTitle">2026-05-22 가용성 설정</div>
+      <button class="icon-btn" onclick="closeModal('availModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="amStatus" style="margin-bottom:16px;"></div>
+      <div class="field">
+        <label class="field-label">상태</label>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-secondary" style="flex:1;" onclick="selectAvailStatus('available', this)" id="btnAvailable">🟢 가용</button>
+          <button class="btn btn-secondary" style="flex:1;" onclick="selectAvailStatus('unavailable', this)" id="btnUnavailable">🔴 불가</button>
+        </div>
+      </div>
+      <div class="field">
+        <label class="field-label">메모 (선택)</label>
+        <textarea class="textarea" id="amNote" placeholder="예: 오후 강의만 가능" maxlength="100"></textarea>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal('availModal')">취소</button>
+      <button class="btn btn-primary" onclick="saveAvail()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 원본 섭외 메일 뷰어 -->
+<div class="modal-backdrop" id="originalMailModal" onclick="if(event.target===this)closeModal('originalMailModal')">
+  <div class="modal lg">
+    <div class="modal-head">
+      <div class="modal-title">📧 원본 섭외 메일</div>
+      <button class="icon-btn" onclick="closeModal('originalMailModal')">✕</button>
+    </div>
+    <div class="modal-body" id="originalMailBody">
+      <!-- 동적 렌더링 -->
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal('originalMailModal')">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 일정 변경 제안 모달 -->
+<div class="modal-backdrop" id="proposeModal" onclick="if(event.target===this)closeModal('proposeModal')">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">📅 다른 날짜 제안</div>
+      <button class="icon-btn" onclick="closeModal('proposeModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:14px; color:var(--slate-600); font-size:13px;">제안된 날짜에 일정이 어렵다면, 강의 가능한 다른 날짜를 역제안할 수 있어요. 기획자가 검토 후 회신합니다.</p>
+      <div class="field">
+        <label class="field-label">제안 날짜 1</label>
+        <input class="input" type="date" id="proposeDate1" min="2026-05-18">
+      </div>
+      <div class="field">
+        <label class="field-label">제안 날짜 2 (선택)</label>
+        <input class="input" type="date" id="proposeDate2" min="2026-05-18">
+      </div>
+      <div class="field">
+        <label class="field-label">메모 (선택)</label>
+        <textarea class="textarea" id="proposeMemo" placeholder="예: 오전만 가능합니다 / 5월 말은 어떨까요?" maxlength="200"></textarea>
+      </div>
+      <div style="padding:10px 12px; background:var(--indigo-50); border-radius:8px; font-size:12px; color:var(--indigo-700);">
+        제안 발송 시 섭외 상태는 <strong>검토 중</strong>으로 전환되며, 기획자가 회신하면 알림을 받게 됩니다.
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal('proposeModal')">취소</button>
+      <button class="btn btn-primary" onclick="sendProposal()">제안 보내기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 수락 결과 안내 모달 -->
+<div class="modal-backdrop" id="acceptResultModal" onclick="if(event.target===this)closeModal('acceptResultModal')">
+  <div class="modal">
+    <div class="modal-head" style="border-bottom:none; padding-bottom:0;">
+      <div></div>
+      <button class="icon-btn" onclick="closeModal('acceptResultModal')">✕</button>
+    </div>
+    <div class="modal-body" style="text-align:center; padding-top:8px;">
+      <div style="width:64px; height:64px; background:var(--emerald-50); border-radius:50%; display:inline-flex; align-items:center; justify-content:center; margin-bottom:14px;">
+        <span style="font-size:32px;">✓</span>
+      </div>
+      <h2 style="font-size:18px; color:var(--slate-900); margin-bottom:6px;">섭외를 수락하셨습니다</h2>
+      <p style="color:var(--slate-500); font-size:13px; margin-bottom:20px;" id="acceptResultSub">아래 작업이 자동으로 진행되었어요</p>
+
+      <div style="text-align:left; padding:14px; background:var(--slate-50); border-radius:10px; margin-bottom:14px;">
+        <div class="result-row"><span style="color:var(--emerald-500);">✓</span> Google Calendar에 일정 등록</div>
+        <div class="result-row"><span style="color:var(--emerald-500);">✓</span> 기획자 칸반 보드에 <strong>확정</strong>으로 자동 이동</div>
+        <div class="result-row"><span style="color:var(--emerald-500);">✓</span> 운영팀에 알림 발송 (계약서 준비)</div>
+        <div class="result-row" id="acceptCommentRow" style="display:none;"><span style="color:var(--emerald-500);">✓</span> 기획자에게 메모 전달 완료</div>
+      </div>
+
+      <div style="padding:12px; background:var(--brand-50); border-radius:10px; text-align:left;">
+        <div style="font-size:12px; font-weight:700; color:var(--brand); margin-bottom:4px;">📬 다음 단계는 메일로 진행됩니다</div>
+        <div style="font-size:13px; color:var(--slate-700);">운영팀이 영업일 1일 이내 강의안·계약서·정산 양식을 메일로 보내드립니다.</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" style="width:100%;" onclick="closeModal('acceptResultModal')">확인</button>
+    </div>
+  </div>
+</div>
+
+<!-- 거절 사유 모달 -->
+<div class="modal-backdrop" id="rejectModal" onclick="if(event.target===this)closeModal('rejectModal')">
+  <div class="modal">
+    <div class="modal-head">
+      <div class="modal-title">섭외 거절</div>
+      <button class="icon-btn" onclick="closeModal('rejectModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="margin-bottom:16px; color:var(--slate-600);">이 섭외를 거절하시겠어요? 거절 시 기획팀에서 다른 강사를 검토합니다.</p>
+      <div class="field">
+        <label class="field-label">거절 사유 (선택)</label>
+        <textarea class="textarea" id="rejectReason" placeholder="예: 해당 날짜에 선약이 있습니다" maxlength="200"></textarea>
+        <div class="field-help">최대 200자</div>
+      </div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-secondary" onclick="closeModal('rejectModal')">취소</button>
+      <button class="btn btn-danger" onclick="confirmReject()">거절하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// =============== v4.0 매칭 서비스 ↔ 포털 데이터 공유 (FR-900) ===============
+const RECRUITMENTS_STORE_KEY = 'instructmatch_recruitments_v4';
+const RECRUITMENT_AUDIT_KEY  = 'instructmatch_audit_log_v4';
+const PORTAL_BROADCAST_CH    = 'instructmatch_v4';
+
+function _getSharedRecruitments() {
+  try { return JSON.parse(localStorage.getItem(RECRUITMENTS_STORE_KEY) || '[]'); }
+  catch { return []; }
+}
+let _broadcastCh = null;
+function _getBroadcastCh() {
+  if (_broadcastCh) return _broadcastCh;
+  try { _broadcastCh = new BroadcastChannel(PORTAL_BROADCAST_CH); return _broadcastCh; }
+  catch { return null; }
+}
+function _broadcastChange(rec) {
+  const ch = _getBroadcastCh();
+  if (ch) ch.postMessage({ type: 'recruitment_change', recruitment: rec, at: Date.now() });
+}
+function _saveSharedRecruitment(rec, actor) {
+  try {
+    const all = _getSharedRecruitments();
+    const idx = all.findIndex(r => r.id === rec.id);
+    const now = new Date().toISOString();
+    const prevState = idx >= 0 ? all[idx].state : null;
+    const merged = idx >= 0 ? { ...all[idx], ...rec, updatedAt: now } : { ...rec, updatedAt: now };
+    if (idx >= 0) all[idx] = merged; else all.push(merged);
+    localStorage.setItem(RECRUITMENTS_STORE_KEY, JSON.stringify(all));
+    const log = JSON.parse(localStorage.getItem(RECRUITMENT_AUDIT_KEY) || '[]');
+    log.push({
+      recruitmentId: rec.id, action: idx >= 0 ? 'updated' : 'created',
+      prevState: prevState, nextState: rec.state,
+      actor: actor || 'instructor', at: now,
+    });
+    if (log.length > 1000) log.splice(0, log.length - 1000);
+    localStorage.setItem(RECRUITMENT_AUDIT_KEY, JSON.stringify(log));
+    _broadcastChange(merged);
+    return merged;
+  } catch { return rec; }
+}
+
+// 매칭 서비스가 보낸 recruitments를 포털 카드 포맷으로 변환
+function _adaptToPortalCard(rec) {
+  const card = {
+    id: rec.id, state: rec.state,
+    courseName: rec.courseName || '', category: rec.category || '',
+    companyName: rec.companyName || '', industry: rec.industry || '',
+    scheduleDate: rec.scheduleDate || '', duration: rec.duration || '',
+    level: rec.level || '', audience: rec.audience || '', budget: rec.budget || '',
+    recording: !!rec.recording, notes: rec.notes || '',
+    unread: !!rec.unreadByInstructor,
+    confirmedAt: rec.confirmedAt || null,
+    rejectedAt: rec.rejectedAt || null,
+    proposedAt: rec.proposedAt || null,
+    instructorName: rec.instructorName || '',
+    _fromMatching: true,
+  };
+  if (rec.expiresAt) {
+    const remain = (new Date(rec.expiresAt).getTime() - Date.now()) / 1000 / 60 / 60;
+    if (remain > 0) {
+      card.expiresHours = Math.round(remain * 10) / 10;
+      const h = Math.floor(remain);
+      const m = Math.round((remain - h) * 60);
+      card.expiresIn = h > 0 ? (h + 'h ' + m + 'm') : (m + 'm');
+    } else {
+      card.expiresHours = 0; card.expiresIn = '만료';
+    }
+  }
+  return card;
+}
+
+// 매칭 서비스가 보낸 카드를 data.recruitments에 병합 (로드 시 호출)
+function _mergeMatchingRecruitments() {
+  const shared = _getSharedRecruitments();
+  if (!shared.length) return false;
+  shared.forEach(rec => {
+    const card = _adaptToPortalCard(rec);
+    const idx = data.recruitments.findIndex(r => r.id === card.id);
+    if (idx >= 0) data.recruitments[idx] = { ...data.recruitments[idx], ...card };
+    else data.recruitments.unshift(card);
+  });
+  return true;
+}
+
+// 매칭 서비스의 BroadcastChannel 변경 수신 (실시간)
+function _subscribeMatchingChanges() {
+  const ch = _getBroadcastCh();
+  if (!ch) return;
+  ch.addEventListener('message', function(e) {
+    if (!e.data || e.data.type !== 'recruitment_change') return;
+    const rec = e.data.recruitment;
+    if (!rec) return;
+    const card = _adaptToPortalCard(rec);
+    const idx = data.recruitments.findIndex(r => r.id === card.id);
+    if (idx >= 0) data.recruitments[idx] = { ...data.recruitments[idx], ...card };
+    else data.recruitments.unshift(card);
+    if (typeof renderAll === 'function') renderAll();
+    if (typeof toast === 'function' && card.state === 'Proposed' && card._fromMatching) {
+      toast('📬 새 섭외 요청: ' + card.companyName + ' ' + (card.courseName||'').substring(0,18), 'success');
+    }
+  });
+}
+
+// 포털 측 상태 변경을 매칭 서비스로 전파 (FR-811/812/813/814)
+function _propagateStateChange(card, newState, extras) {
+  if (!card || !card._fromMatching) return;
+  _saveSharedRecruitment(Object.assign({
+    id: card.id,
+    state: newState,
+    instructorName: card.instructorName || '',
+  }, extras || {}), 'instructor');
+}
+
+// === v4: 캘린더 양방향 동기화 (v5.1 매칭 서비스와 강사 이름으로 매칭) ===
+const INSTRUCTOR_CALENDARS_KEY = 'instructmatch_instructor_calendars_v4';
+
+function _getAllInstructorCalendars() {
+  try { return JSON.parse(localStorage.getItem(INSTRUCTOR_CALENDARS_KEY) || '{}'); }
+  catch { return {}; }
+}
+function _broadcastCalendarChange(name) {
+  const ch = _getBroadcastCh();
+  if (ch) ch.postMessage({ type: 'instructor_calendar_change', instructorName: name, at: Date.now() });
+}
+function _saveInstructorCalendar(name, schedules) {
+  if (!name || name === '강사') return; // 데모 모드(이름 없음)에서는 저장 안 함
+  try {
+    const all = _getAllInstructorCalendars();
+    const enriched = {};
+    Object.entries(schedules || {}).forEach(function(pair){
+      const date = pair[0], slot = pair[1];
+      enriched[date] = Object.assign({}, slot, { source: slot.source || 'instructor_portal' });
+    });
+    all[name] = enriched;
+    localStorage.setItem(INSTRUCTOR_CALENDARS_KEY, JSON.stringify(all));
+    _broadcastCalendarChange(name);
+  } catch {}
+  // ★ Phase 3a: Supabase calendar_events 양방향 동기화 (본인 'unavailable' = 'blocked')
+  if (IS_SUPABASE_MODE && _signedInUser && _signedInUser.calendar_id) {
+    _syncSelfBlockedToSupabase(_signedInUser.calendar_id, schedules)
+      .catch(function(e){ console.error('Supabase sync calendar failed', e); });
+  }
+}
+async function _restoreInstructorCalendar(name) {
+  if (!name || name === '강사') {
+    // 데모 모드라도 Supabase 모드면 캘린더 로드는 진행
+    if (!IS_SUPABASE_MODE) return;
+  }
+  const all = _getAllInstructorCalendars();
+  const own = name ? all[name] : null;
+  if (own) {
+    // 본인이 이전에 저장한 일정을 data.schedules에 병합 (기존 confirmed/soft_lock는 보존)
+    Object.entries(own).forEach(function(pair){
+      const date = pair[0], slot = pair[1];
+      if (!data.schedules[date]) data.schedules[date] = slot;
+    });
+  }
+  // ★ Phase 3a: Supabase calendar_events에서 본인 데이터 추가 로드
+  if (IS_SUPABASE_MODE && _signedInUser && _signedInUser.calendar_id) {
+    try {
+      const { data: events, error } = await supabaseClient
+        .from('calendar_events')
+        .select('date, type, source, title, note')
+        .eq('calendar_id', _signedInUser.calendar_id);
+      if (!error && events) {
+        events.forEach(function(ev){
+          const status = ev.type === 'blocked' ? 'unavailable'
+                       : ev.type === 'confirmed' ? 'confirmed'
+                       : ev.type === 'proposed' ? 'soft_lock'
+                       : null;
+          if (status && !data.schedules[ev.date]) {
+            data.schedules[ev.date] = { status: status, label: ev.title || ev.note || '' };
+          }
+        });
+        if (typeof renderCalendar === 'function') renderCalendar();
+      }
+    } catch (e) { console.error('Supabase restore calendar failed', e); }
+  }
+}
+
+async function _initMatchingIntegration() {
+  _mergeMatchingRecruitments();
+  // ★ Phase 3a: 본인 calendar_id 조회 + Realtime 구독 (Supabase 모드)
+  if (IS_SUPABASE_MODE && _signedInUser && _signedInUser.supabaseUserId && !_signedInUser.calendar_id) {
+    try {
+      const { data: cal, error } = await supabaseClient
+        .from('calendars')
+        .select('id')
+        .eq('instructor_id', _signedInUser.supabaseUserId)
+        .single();
+      if (!error && cal) {
+        _signedInUser.calendar_id = cal.id;
+        _subscribeCalendarEvents(cal.id);
+      }
+    } catch (e) { console.error('Failed to resolve calendar_id', e); }
+  }
+  // ★ Phase 5: Supabase threads 수신 (매칭 서비스에서 보낸 섭외 → 강사 포털 카드)
+  if (IS_SUPABASE_MODE && _signedInUser && _signedInUser.supabaseUserId) {
+    await _loadThreadsFromSupabase();
+    _subscribeThreadsRealtime();
+  }
+  await _restoreInstructorCalendar(_signedInUser && _signedInUser.name);
+  _subscribeMatchingChanges();
+}
+
+// ★ Phase 5: threads (Supabase) → recruitment 카드 변환
+function _adaptThreadToRecruit(thread) {
+  const stateMap = { 'draft':'Draft', 'proposed':'Proposed', 'negotiating':'Negotiating', 'confirmed':'Confirmed', 'rejected':'Rejected' };
+  const firstCourse = (thread.courses && thread.courses.length) ? thread.courses[0] : null;
+  return {
+    id: 'sb-' + thread.id,
+    instructorId: thread.instructor_id || '',
+    instructorName: (_signedInUser && _signedInUser.name) || '강사',
+    instructorEmail: thread.instructor_email || '',
+    state: stateMap[thread.status] || 'Proposed',
+    courseName: thread.project_title || (firstCourse && firstCourse.title) || '(과정명 미상)',
+    category: (firstCourse && firstCourse.title) || '',
+    companyName: thread.client_name || '',
+    industry: '',
+    scheduleDate: thread.edu_date || '',
+    duration: thread.edu_hours ? (thread.edu_hours + 'H') : '',
+    level: thread.level_structure || '',
+    audience: thread.target_audience || '',
+    budget: thread.price_per_hour ? (thread.price_per_hour + '만원/시간') : '',
+    recording: false,
+    notes: thread.curriculum_note || '',
+    expiresAt: thread.reply_deadline || null,
+    proposedAt: thread.created_at,
+    confirmedAt: null,
+    rejectedAt: null,
+    rejectionReason: thread.rejection_reason || null,
+    unreadByInstructor: true,
+    createdAt: thread.created_at,
+    updatedAt: thread.updated_at,
+    _fromSupabase: true,
+    _supabaseThreadId: thread.id,
+    _operatorName: thread.operator_name || ''
+  };
+}
+
+function _addThreadAsRecruitCard(thread) {
+  const card = _adaptThreadToRecruit(thread);
+  const idx = data.recruitments.findIndex(function(r) { return r.id === card.id; });
+  if (idx >= 0) {
+    data.recruitments[idx] = card;
+  } else {
+    data.recruitments.unshift(card);
+  }
+}
+
+async function _loadThreadsFromSupabase() {
+  try {
+    const { data: threads, error } = await supabaseClient
+      .from('threads')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    if (!threads || !threads.length) return;
+    threads.forEach(_addThreadAsRecruitCard);
+    if (typeof renderRecruits === 'function') renderRecruits();
+    if (typeof renderUpcoming === 'function') renderUpcoming();
+    if (typeof renderDashboardSummary === 'function') renderDashboardSummary();
+  } catch (e) { console.error('Load threads from Supabase failed', e); }
+}
+
+let _threadsChannel = null;
+function _subscribeThreadsRealtime() {
+  if (_threadsChannel) return;
+  _threadsChannel = supabaseClient
+    .channel('threads_rt_' + ((_signedInUser && _signedInUser.supabaseUserId) || 'anon'))
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'threads'
+    }, function(payload) {
+      const row = payload.new || payload.old;
+      if (!row) return;
+      if (payload.eventType === 'DELETE') {
+        data.recruitments = data.recruitments.filter(function(r) { return r.id !== 'sb-' + row.id; });
+      } else {
+        _addThreadAsRecruitCard(row);
+        if (payload.eventType === 'INSERT' && typeof toast === 'function') {
+          toast('📬 새 섭외 요청: ' + (row.client_name || row.project_title || ''), 'success');
+        }
+      }
+      if (typeof renderRecruits === 'function') renderRecruits();
+      if (typeof renderDashboardSummary === 'function') renderDashboardSummary();
+    })
+    .subscribe();
+}
+
+// ★ Phase 3a 헬퍼: 본인 'unavailable' ↔ Supabase 'blocked'(source=self) 양방향 동기화
+async function _syncSelfBlockedToSupabase(calendarId, schedules) {
+  const { data: existing, error: e1 } = await supabaseClient
+    .from('calendar_events')
+    .select('id, date')
+    .eq('calendar_id', calendarId)
+    .eq('source', 'self')
+    .eq('type', 'blocked');
+  if (e1) throw e1;
+  const blockedDates = new Set(
+    Object.entries(schedules || {})
+      .filter(function(p){ return p[1] && p[1].status === 'unavailable'; })
+      .map(function(p){ return p[0]; })
+  );
+  const existingMap = new Map((existing || []).map(function(e){ return [e.date, e.id]; }));
+  const toDelete = (existing || [])
+    .filter(function(e){ return !blockedDates.has(e.date); })
+    .map(function(e){ return e.id; });
+  if (toDelete.length > 0) {
+    const { error: eDel } = await supabaseClient.from('calendar_events').delete().in('id', toDelete);
+    if (eDel) throw eDel;
+  }
+  const toInsert = Array.from(blockedDates)
+    .filter(function(d){ return !existingMap.has(d); })
+    .map(function(date){
+      return {
+        calendar_id: calendarId,
+        date: date,
+        type: 'blocked',
+        source: 'self',
+        title: '불가',
+        note: (schedules[date] && schedules[date].label) || null
+      };
+    });
+  if (toInsert.length > 0) {
+    const { error: eIns } = await supabaseClient.from('calendar_events').insert(toInsert);
+    if (eIns) throw eIns;
+  }
+}
+
+let _calendarChannel = null;
+function _subscribeCalendarEvents(calendarId) {
+  if (_calendarChannel) return; // 중복 구독 방지
+  _calendarChannel = supabaseClient
+    .channel('cal_' + calendarId)
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'calendar_events',
+      filter: 'calendar_id=eq.' + calendarId
+    }, _onRealtimeCalendarChange)
+    .subscribe();
+}
+
+function _onRealtimeCalendarChange(payload) {
+  const row = payload.new || payload.old;
+  if (!row || !row.date) return;
+  if (payload.eventType === 'DELETE') {
+    if (data.schedules[row.date]) {
+      delete data.schedules[row.date];
+    }
+  } else {
+    const status = row.type === 'blocked' ? 'unavailable'
+                 : row.type === 'confirmed' ? 'confirmed'
+                 : row.type === 'proposed' ? 'soft_lock'
+                 : null;
+    if (status) {
+      data.schedules[row.date] = { status: status, label: row.title || row.note || '' };
+    }
+  }
+  if (typeof renderCalendar === 'function') renderCalendar();
+}
+
+// v4 하이브리드: 확정 일정 .ics 내보내기 (Google/Apple/Outlook 호환)
+function exportConfirmedAsIcs() {
+  // data.recruitments에서 Confirmed 상태 + data.schedules의 confirmed 슬롯 통합
+  const confirmedRecs = (data.recruitments || []).filter(r => r.state === 'Confirmed' && r.scheduleDate);
+  if (!confirmedRecs.length) {
+    toast('내보낼 확정 일정이 없습니다.', 'info');
+    return;
+  }
+  const pad = n => String(n).padStart(2, '0');
+  const escapeIcs = s => String(s || '').replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+  const fmt = (dateStr, hour = 9, minute = 0) => {
+    // YYYY-MM-DD → YYYYMMDDTHHMMSS (local time, no Z)
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return `${y}${pad(m)}${pad(d)}T${pad(hour)}${pad(minute)}00`;
+  };
+  const stamp = new Date();
+  const dtStamp = `${stamp.getUTCFullYear()}${pad(stamp.getUTCMonth()+1)}${pad(stamp.getUTCDate())}T${pad(stamp.getUTCHours())}${pad(stamp.getUTCMinutes())}${pad(stamp.getUTCSeconds())}Z`;
+  const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//InstructMatch//Instructor Portal//KO', 'CALSCALE:GREGORIAN'];
+  confirmedRecs.forEach(r => {
+    const summary = `[${r.companyName || ''}] ${r.courseName || '교육'}`;
+    const desc = [
+      r.category && `카테고리: ${r.category}`,
+      r.duration && `시수: ${r.duration}`,
+      r.audience && `대상: ${r.audience}`,
+      r.budget && `예산: ${r.budget}`,
+      r.notes && `특이사항: ${r.notes}`,
+    ].filter(Boolean).join('\n');
+    lines.push('BEGIN:VEVENT');
+    lines.push(`UID:${r.id || 'rec'}-${Date.now()}@instructmatch`);
+    lines.push(`DTSTAMP:${dtStamp}`);
+    lines.push(`DTSTART:${fmt(r.scheduleDate, 9, 0)}`);
+    lines.push(`DTEND:${fmt(r.scheduleDate, 18, 0)}`);
+    lines.push(`SUMMARY:${escapeIcs(summary)}`);
+    if (desc) lines.push(`DESCRIPTION:${escapeIcs(desc)}`);
+    if (r.companyName) lines.push(`LOCATION:${escapeIcs(r.companyName)}`);
+    lines.push('END:VEVENT');
+  });
+  lines.push('END:VCALENDAR');
+  const icsText = lines.join('\r\n');
+  const blob = new Blob([icsText], { type: 'text/calendar;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safeName = (_signedInUser && _signedInUser.name || 'instructor').replace(/[\\/?%*:|"<>]/g, '_');
+  a.download = `instructmatch_${safeName}_${stamp.getFullYear()}${pad(stamp.getMonth()+1)}${pad(stamp.getDate())}.ics`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 500);
+  toast(`${confirmedRecs.length}건의 확정 일정을 .ics 파일로 내보냈습니다.`, 'success');
+}
+
+// =============== 데이터 ===============
+const data = {
+  recruitments: [],
+  schedules: {},
+  categories: ['생성형 AI', '데이터 분석', '머신러닝', '딥러닝', 'LLM/RAG', '프롬프트 엔지니어링', '콘텐츠 기획', '마케팅', '리더십', 'UX/디자인', '재무', '세일즈', '커뮤니케이션', '프로젝트 관리', '클라우드'],
+  selectedCategories: [],
+  history: [],
+  calendar: { year: 2026, month: 5 },
+};
+let currentRecruitId = null;
+let currentAvailDate = null;
+let currentAvailStatus = null;
+
+// =============== 인증 (Google Identity Services + Calendar API) ===============
+// ▶ Google Cloud Console에서 발급받은 값을 입력하세요. https://console.cloud.google.com/apis/credentials
+//   GOOGLE_CLIENT_ID 가 비어 있으면 자동으로 "데모 모드"로 동작합니다(기존 목업 흐름 유지).
+const GOOGLE_CLIENT_ID = '1034827801553-fi3lcs21gud9lu29ipe4vl847a9cln7h.apps.googleusercontent.com';
+const GOOGLE_API_KEY = '';        // (선택) Discovery 캐시용. 비워두면 익명 호출
+const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/calendar';
+const GOOGLE_DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+const DEMO_MODE = !GOOGLE_CLIENT_ID;
+
+let _gapiInited = false;
+let _gisInited = false;
+let _tokenClient = null;
+let _signedInUser = null; // { name, email, picture }
+
+function gapiLoaded() {
+  gapi.load('client', _initGapiClient);
+}
+async function _initGapiClient() {
+  const cfg = { discoveryDocs: [GOOGLE_DISCOVERY_DOC] };
+  if (GOOGLE_API_KEY) cfg.apiKey = GOOGLE_API_KEY;
+  try { await gapi.client.init(cfg); _gapiInited = true; }
+  catch (e) { console.error('gapi init failed', e); }
+}
+function gisLoaded() {
+  if (!GOOGLE_CLIENT_ID) return; // 데모 모드: GIS 초기화 생략
+  _tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: GOOGLE_SCOPES,
+    callback: '', // signIn() 내부에서 동적으로 설정
+  });
+  _gisInited = true;
+}
+
+// =============== Supabase 인증 (v4.2 B-510 / B-801.2 매직 링크 위임) ===============
+// anon key는 공개키. 002_rls.sql의 RLS 정책으로 보호되므로 클라이언트 노출 안전.
+const SUPABASE_URL = 'https://cvhqrfromlzksdeodgpw.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN2aHFyZnJvbWx6a3NkZW9kZ3B3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkyMjQyNzYsImV4cCI6MjA5NDgwMDI3Nn0.CZfv6beXE7iN6MS3Od9nRJ94EVFXvf8NbGu3A_A2h6A';
+const supabaseClient = (window.supabase && SUPABASE_URL && SUPABASE_ANON_KEY)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+const IS_SUPABASE_MODE = !!supabaseClient;
+
+// v4 하이브리드: 사이트 전용 매직 링크 로그인 (Supabase 미연결 시 fallback)
+const SIGNED_IN_USER_KEY = 'instructmatch_signed_in_user_v4';
+
+async function signIn() {
+  // v4.2 B-801.2 갱신: Google OAuth 기본 (매직링크 제거)
+  if (!IS_SUPABASE_MODE) {
+    toast('Supabase 클라이언트가 로드되지 않았어요. 새로고침 후 다시 시도해주세요.', 'error');
+    return;
+  }
+  try {
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + window.location.pathname,
+        queryParams: { prompt: 'select_account' }
+      }
+    });
+    if (error) throw error;
+    // OAuth는 페이지 리다이렉트로 진행 — 이 라인 도달 전 Google 동의 화면으로 전환
+  } catch (e) {
+    console.error('Google sign-in failed', e);
+    toast('Google 로그인 실패: ' + (e.message || e), 'error');
+  }
+}
+
+// 레거시 호환 alias — signIn으로 통합 (v4.2 Google OAuth 기본)
+function signInGoogle() { return signIn(); }
+
+// 페이지 진입 시 저장된 사용자 자동 복원 (이미 로그인된 상태면 바로 포털 진입)
+function _restoreSignedInUser() {
+  try {
+    const raw = localStorage.getItem(SIGNED_IN_USER_KEY);
+    if (!raw) return false;
+    const u = JSON.parse(raw);
+    if (!u || !u.name) return false;
+    _signedInUser = u;
+    return true;
+  } catch (_) { return false; }
+}
+// Supabase 세션 → _signedInUser 반영 + 포털 진입 (Google OAuth metadata 처리 포함)
+function _applySupabaseSession(session) {
+  if (!session || !session.user) return;
+  const u = session.user;
+  const meta = u.user_metadata || {};
+  const name = meta.full_name || meta.name || (u.email ? u.email.split('@')[0] : '강사');
+  const picture = meta.avatar_url || meta.picture || null;
+  _signedInUser = { name: name, email: u.email, picture: picture, supabaseUserId: u.id };
+  try { localStorage.setItem(SIGNED_IN_USER_KEY, JSON.stringify(_signedInUser)); } catch (_) {}
+  _enterPortal();
+  toast('환영합니다, ' + name + ' 강사님 👋', 'success');
+}
+
+window.addEventListener('DOMContentLoaded', async function() {
+  // [1차] Supabase 세션 우선 (매직 링크 클릭으로 돌아온 경우 포함)
+  if (IS_SUPABASE_MODE) {
+    try {
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      if (session && session.user) {
+        _applySupabaseSession(session);
+        return;
+      }
+    } catch (e) { console.error('Supabase getSession failed', e); }
+
+    // 매직 링크 콜백 / 외부 로그인에 대비한 상태 변화 리스너
+    supabaseClient.auth.onAuthStateChange(function (event, session) {
+      if (event === 'SIGNED_IN' && session && session.user && !_signedInUser) {
+        _applySupabaseSession(session);
+      } else if (event === 'SIGNED_OUT') {
+        _signedInUser = null;
+        document.getElementById('signinScreen').style.display = 'flex';
+        document.getElementById('portal').classList.remove('active');
+      }
+    });
+  }
+
+  // [2차] Supabase 세션 없으면 데모 localStorage fallback
+  if (_restoreSignedInUser()) {
+    _enterPortal();
+  }
+});
+
+function _enterPortal() {
+  document.getElementById('signinScreen').style.display = 'none';
+  document.getElementById('portal').classList.add('active');
+  _applySignedInUserUI();
+  _initMatchingIntegration();  // v4: 매칭 서비스 데이터 병합 + 채널 구독
+  renderAll();
+  const fromMatching = data.recruitments.filter(r => r._fromMatching);
+  if (fromMatching.length > 0) {
+    setTimeout(function () {
+      toast('🔗 매칭 서비스에서 ' + fromMatching.length + '건 동기화됨', 'info');
+    }, 800);
+  }
+}
+
+// Google 로그인 사용자 정보를 화면 곳곳에 반영
+function _applySignedInUserUI() {
+  const name = _signedInUser?.name || '강사';
+  const email = _signedInUser?.email || '-';
+  const initial = (name || '강').trim().charAt(0);
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  setText('profileName', name);
+  setText('profileAvatar', initial);
+  setText('dashboardGreeting', `안녕하세요, ${name} 강사님 👋`);
+  setText('profileBasicName', name);
+  setText('profileBasicEmail', email);
+}
+
+async function signOut() {
+  if (!confirm('로그아웃하시겠어요?')) return;
+  // Supabase 세션 종료 (있으면)
+  if (IS_SUPABASE_MODE) {
+    try { await supabaseClient.auth.signOut(); } catch (_) {}
+  }
+  // Google 토큰 폐기 (있으면 — 레거시 데모 호환)
+  if (!DEMO_MODE && window.gapi && gapi.client) {
+    const token = gapi.client.getToken();
+    if (token && token.access_token) {
+      google.accounts.oauth2.revoke(token.access_token, () => {});
+      gapi.client.setToken(null);
+    }
+  }
+  _signedInUser = null;
+  try { localStorage.removeItem(SIGNED_IN_USER_KEY); } catch (_) {}
+  document.getElementById('signinScreen').style.display = 'flex';
+  document.getElementById('portal').classList.remove('active');
+}
+
+// =============== 페이지 전환 ===============
+function goto(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + page).classList.add('active');
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
+  document.querySelectorAll('.mobile-nav-item').forEach(n => n.classList.toggle('active', n.dataset.page === page));
+  window.scrollTo(0, 0);
+}
+
+// =============== 대시보드 ===============
+function renderUpcoming() {
+  const container = document.getElementById('upcomingSchedules');
+  // 실제 섭외 데이터(확정/검토중)에서 다가오는 일정 5건 추출
+  const today = '2026-05-17';
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  const upcoming = data.recruitments
+    .filter(r => (r.state === 'Confirmed' || r.state === 'Proposed') && r.scheduleDate && r.scheduleDate >= today)
+    .sort((a, b) => a.scheduleDate.localeCompare(b.scheduleDate))
+    .slice(0, 5)
+    .map(r => {
+      const dt = new Date(r.scheduleDate + 'T00:00:00');
+      return {
+        date: r.scheduleDate,
+        day: weekdays[dt.getDay()],
+        status: r.state === 'Confirmed' ? 'confirmed' : 'soft_lock',
+        label: r.courseName,
+        meta: [r.companyName, r.duration].filter(Boolean).join(' · '),
+        ttl: r.expiresIn ? '만료까지 ' + r.expiresIn : null,
+        id: r.id,
+      };
+    });
+  if (upcoming.length === 0) {
+    container.innerHTML = '<div style="padding:24px; text-align:center; color:var(--slate-400); font-size:13px;">다가오는 일정이 없습니다</div>';
+    return;
+  }
+  container.innerHTML = upcoming.map(s => {
+    const [y, m, d] = s.date.split('-');
+    return `
+      <div class="schedule-row" onclick="openRecruit('${s.id}')">
+        <div class="schedule-date">
+          <div class="schedule-day">${m}월 ${s.day}</div>
+          <div class="schedule-num">${parseInt(d)}</div>
+        </div>
+        <div class="schedule-info">
+          <div class="schedule-label">${s.label}</div>
+          <div class="schedule-meta">${s.meta}${s.ttl ? ' · <span class="schedule-ttl">' + s.ttl + '</span>' : ''}</div>
+        </div>
+        <span class="badge badge-${s.status}">${s.status === 'confirmed' ? '확정' : 'Soft Lock'}</span>
+      </div>
+    `;
+  }).join('');
+}
+
+// =============== 캘린더 ===============
+function changeMonth(delta) {
+  data.calendar.month += delta;
+  if (data.calendar.month < 1) { data.calendar.month = 12; data.calendar.year--; }
+  if (data.calendar.month > 12) { data.calendar.month = 1; data.calendar.year++; }
+  renderCalendar();
+}
+
+function renderCalendar() {
+  const { year, month } = data.calendar;
+  document.getElementById('calMonth').textContent = `${year}년 ${month}월`;
+  const grid = document.getElementById('calendarGrid');
+  const weekdays = ['일', '월', '화', '수', '목', '금', '토'];
+  const today = new Date('2026-05-17');
+  let html = weekdays.map((w, i) => `<div class="cal-weekday ${i===0?'sun':''} ${i===6?'sat':''}">${w}</div>`).join('');
+
+  const firstDay = new Date(year, month - 1, 1).getDay();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const prevDays = new Date(year, month - 1, 0).getDate();
+
+  for (let i = firstDay - 1; i >= 0; i--) {
+    html += `<div class="cal-day muted"><div class="cal-day-num">${prevDays - i}</div></div>`;
+  }
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const sched = data.schedules[dateStr];
+    const isToday = (year === today.getFullYear() && month === today.getMonth() + 1 && d === today.getDate());
+    html += `
+      <div class="cal-day ${isToday ? 'today' : ''}" onclick="openAvail('${dateStr}')">
+        <div class="cal-day-num">${d}</div>
+        ${sched ? `<div class="cal-day-event ${sched.status}">${sched.label.substring(0, 8)}</div>` : ''}
+      </div>
+    `;
+  }
+  const total = firstDay + daysInMonth;
+  const remain = (7 - (total % 7)) % 7;
+  for (let i = 1; i <= remain; i++) {
+    html += `<div class="cal-day muted"><div class="cal-day-num">${i}</div></div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function openAvail(dateStr) {
+  currentAvailDate = dateStr;
+  const sched = data.schedules[dateStr];
+  document.getElementById('amTitle').textContent = `${dateStr} 가용성 설정`;
+  const statusDiv = document.getElementById('amStatus');
+
+  if (sched && (sched.status === 'confirmed' || sched.status === 'soft_lock')) {
+    statusDiv.innerHTML = `
+      <div style="padding:12px; background:var(--amber-50); border-radius:8px; font-size:13px; color:var(--amber-700);">
+        <strong>⚠ 변경 불가</strong><br>
+        ${sched.status === 'confirmed' ? '확정된 일정' : '진행 중인 Soft Lock'}이라 직접 수정할 수 없습니다. (${sched.label})
+      </div>
+    `;
+    document.getElementById('btnAvailable').disabled = true;
+    document.getElementById('btnUnavailable').disabled = true;
+  } else {
+    statusDiv.innerHTML = '';
+    document.getElementById('btnAvailable').disabled = false;
+    document.getElementById('btnUnavailable').disabled = false;
+    currentAvailStatus = sched ? sched.status : 'available';
+    selectAvailStatus(currentAvailStatus, document.getElementById('btn' + (currentAvailStatus === 'available' ? 'Available' : 'Unavailable')));
+  }
+  document.getElementById('amNote').value = '';
+  openModal('availModal');
+}
+
+function selectAvailStatus(status, btn) {
+  currentAvailStatus = status;
+  document.getElementById('btnAvailable').classList.remove('btn-success');
+  document.getElementById('btnUnavailable').classList.remove('btn-danger');
+  document.getElementById('btnAvailable').classList.add('btn-secondary');
+  document.getElementById('btnUnavailable').classList.add('btn-secondary');
+  if (status === 'available') {
+    btn.classList.remove('btn-secondary');
+    btn.classList.add('btn-success');
+  } else {
+    btn.classList.remove('btn-secondary');
+    btn.classList.add('btn-danger');
+  }
+}
+
+function saveAvail() {
+  if (currentAvailStatus === 'unavailable') {
+    data.schedules[currentAvailDate] = { status: 'unavailable', label: '수동 입력 불가' };
+  } else {
+    delete data.schedules[currentAvailDate];
+  }
+  renderCalendar();
+  closeModal('availModal');
+  // v4: 캘린더 변경을 매칭 서비스로 전파 (강사 이름 키로)
+  _saveInstructorCalendar(_signedInUser && _signedInUser.name, data.schedules);
+  toast(`${currentAvailDate} 가용성이 저장되었습니다`, 'success');
+}
+
+// =============== 섭외 ===============
+function renderRecruits() {
+  ['Proposed', 'Negotiating', 'Confirmed', 'Rejected'].forEach(state => {
+    const items = data.recruitments.filter(r => r.state === state);
+    const colId = 'col-' + state.toLowerCase();
+    const col = document.getElementById(colId);
+    if (!col) return;
+    col.innerHTML = items.map(r => renderRecruitCard(r)).join('');
+    const cntEl = document.getElementById('cnt-' + state.toLowerCase());
+    if (cntEl) cntEl.textContent = items.length;
+  });
+  renderListView();
+  const proposedCount = data.recruitments.filter(r => r.state === 'Proposed').length;
+  document.getElementById('navBadge').textContent = proposedCount;
+}
+
+function renderRecruitCard(r) {
+  const urgent = r.expiresHours !== null && r.expiresHours < 6;
+  return `
+    <div class="recruit-card ${r.unread ? 'unread' : ''} ${urgent ? 'urgent' : ''}" onclick="openRecruit('${r.id}')">
+      <div class="recruit-category">${r.category}</div>
+      <div class="recruit-name">${r.courseName}</div>
+      <div class="recruit-meta">📅 ${r.scheduleDate} · ${r.duration || '-'}</div>
+      <div class="recruit-footer">
+        <span style="font-size:11px; color:var(--slate-500);">${r.companyName}</span>
+        ${r.expiresIn ? `<span class="badge badge-warning">⏱ ${r.expiresIn}</span>` : (r.confirmedAt ? `<span style="font-size:11px; color:var(--slate-400);">확정 ${r.confirmedAt}</span>` : (r.rejectedAt ? `<span style="font-size:11px; color:var(--slate-400);">거절 ${r.rejectedAt}</span>` : ''))}
+      </div>
+    </div>
+  `;
+}
+
+function renderListView() {
+  const items = data.recruitments.filter(r => r.state !== 'Rejected');
+  document.getElementById('listContainer').innerHTML = items.map(r => `
+    <div class="recruit-list-item ${r.unread ? 'unread' : ''}" onclick="openRecruit('${r.id}')">
+      <div>
+        <div style="font-size:11px; color:var(--brand); font-weight:700; margin-bottom:2px;">${r.category}</div>
+        <div style="font-weight:700; color:var(--slate-900);">${r.courseName}</div>
+        <div style="font-size:12px; color:var(--slate-500); margin-top:4px;">${r.companyName} · ${r.scheduleDate} · ${r.duration || '-'}</div>
+      </div>
+      <span class="badge badge-${r.state.toLowerCase()}">${stateLabel(r.state)}</span>
+      <button class="btn-ghost btn btn-sm">상세 →</button>
+    </div>
+  `).join('');
+}
+
+function stateLabel(s) {
+  return { Proposed: '수락 대기', Negotiating: '검토 중', Confirmed: '확정', Rejected: '거절' }[s];
+}
+
+function toggleView(view, btn) {
+  document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('recruitKanbanView').style.display = view === 'kanban' ? 'block' : 'none';
+  document.getElementById('recruitListView').style.display = view === 'list' ? 'block' : 'none';
+}
+
+function openRecruit(id) {
+  const r = data.recruitments.find(x => x.id === id);
+  if (!r) return;
+  if (r.unread) { r.unread = false; renderRecruits(); }
+  currentRecruitId = id;
+  document.getElementById('rmCategory').textContent = r.category;
+  document.getElementById('rmTitle').textContent = r.courseName;
+
+  const isProposed = r.state === 'Proposed';
+  const isNegotiating = r.state === 'Negotiating';
+  const canAct = isProposed || isNegotiating;
+
+  // 충돌 감지: 해당 날짜에 이미 다른 일정이 있는지 (자기 자신 제외)
+  const existing = data.schedules[r.scheduleDate];
+  const hasConflict = canAct && existing && existing.status === 'confirmed';
+
+  document.getElementById('rmBody').innerHTML = `
+    ${r.expiresIn ? `
+      <div style="padding:12px 16px; background:${r.expiresHours < 6 ? 'var(--brand-50)' : 'var(--amber-50)'}; border-radius:8px; margin-bottom:16px; display:flex; align-items:center; gap:10px;">
+        <span style="font-size:18px;">⏱</span>
+        <div>
+          <div style="font-weight:700; color:${r.expiresHours < 6 ? 'var(--brand)' : 'var(--amber-700)'};">만료까지 ${r.expiresIn}</div>
+          <div style="font-size:12px; color:var(--slate-600);">기한 내 응답하지 않으면 자동으로 다른 강사가 검토됩니다</div>
+        </div>
+      </div>
+    ` : ''}
+
+    ${hasConflict ? `
+      <div style="padding:12px 16px; background:var(--brand-50); border:1px solid #FCA5A5; border-radius:8px; margin-bottom:16px;">
+        <div style="font-weight:700; color:var(--brand); margin-bottom:4px;">⚠ 일정 충돌 감지</div>
+        <div style="font-size:13px; color:var(--slate-700);">${r.scheduleDate}에 이미 <strong>${existing.label}</strong>이 등록되어 있어요. 수락 시 이중 예약이 발생할 수 있습니다.</div>
+      </div>
+    ` : ''}
+
+    <div class="detail-grid">
+      <div>
+        <h3 style="font-size:14px; font-weight:700; color:var(--slate-700); margin-bottom:12px;">교육 요구사항</h3>
+        <div class="info-row"><div class="info-label">고객사</div><div class="info-value">${r.companyName}</div></div>
+        <div class="info-row"><div class="info-label">산업</div><div class="info-value">${r.industry || '-'}</div></div>
+        <div class="info-row"><div class="info-label">대상 인원</div><div class="info-value">${r.audience || '-'}</div></div>
+        <div class="info-row"><div class="info-label">난이도</div><div class="info-value">${r.level || '-'}</div></div>
+        <div class="info-row"><div class="info-label">교육 일정</div><div class="info-value">${r.scheduleDate} · ${r.duration}</div></div>
+        <div class="info-row"><div class="info-label">예산 범위</div><div class="info-value">${r.budget || '-'}</div></div>
+        <div class="info-row"><div class="info-label">녹화 여부</div><div class="info-value">${r.recording ? '<span class="badge badge-warning">녹화 필요</span>' : '미녹화'}</div></div>
+        <div class="info-row"><div class="info-label">비고</div><div class="info-value" style="font-size:13px; color:var(--slate-600);">${r.notes || '-'}</div></div>
+        <div style="margin-top:14px;">
+          <button class="btn btn-ghost btn-sm" onclick="openOriginalMail('${r.id}')">📧 원본 섭외 메일 다시 보기</button>
+        </div>
+      </div>
+      <div>
+        <h3 style="font-size:14px; font-weight:700; color:var(--slate-700); margin-bottom:12px;">진행 상태</h3>
+        <div style="padding:16px; background:var(--slate-50); border-radius:8px; margin-bottom:12px;">
+          <div style="font-size:12px; color:var(--slate-500); margin-bottom:4px;">현재 상태</div>
+          <span class="badge badge-${r.state.toLowerCase()}">${stateLabel(r.state)}</span>
+        </div>
+
+        <h3 style="font-size:13px; font-weight:700; color:var(--slate-700); margin:14px 0 8px;">⏱ 진행 기록</h3>
+        <div class="audit-list">
+          <div class="audit-row"><span class="audit-dot done"></span><div><div class="audit-when">${r.proposedAt || '2026-05-15 09:24'}</div><div class="audit-what">기획자 섭외 요청 발송</div></div></div>
+          <div class="audit-row"><span class="audit-dot ${r.unread ? 'pending' : 'done'}"></span><div><div class="audit-when">${r.unread ? '미확인' : '2026-05-17 ' + (10 + Math.floor(Math.random()*3)) + ':12'}</div><div class="audit-what">강사 포털 진입 · 내용 확인</div></div></div>
+          ${r.confirmedAt ? `<div class="audit-row"><span class="audit-dot done"></span><div><div class="audit-when">${r.confirmedAt}</div><div class="audit-what">강사 수락 · 캘린더 자동 등록</div></div></div>` : (r.rejectedAt ? `<div class="audit-row"><span class="audit-dot done"></span><div><div class="audit-when">${r.rejectedAt}</div><div class="audit-what">강사 거절${r.reason ? ' · 사유 입력됨' : ''}</div></div></div>` : `<div class="audit-row"><span class="audit-dot pending"></span><div><div class="audit-when">대기 중</div><div class="audit-what">의사결정 (수락/거절/날짜 제안)</div></div></div>`)}
+        </div>
+      </div>
+    </div>
+
+    ${canAct ? `
+      <div style="margin-top:18px; padding:14px 16px; background:var(--emerald-50); border-radius:10px;">
+        <div style="font-size:12px; font-weight:700; color:var(--emerald-700); margin-bottom:6px;">✓ 수락 시 자동으로 진행됩니다</div>
+        <ul style="margin:0; padding-left:18px; font-size:13px; color:var(--slate-700); line-height:1.7;">
+          <li>강사님 Google Calendar에 일정 자동 등록 (장소·담당자 포함)</li>
+          <li>기획자 대시보드 칸반이 <strong>확정</strong>으로 자동 이동</li>
+          <li>운영팀에 알림 → 계약서·강의안은 별도 메일로 안내 (기존 방식)</li>
+        </ul>
+      </div>
+
+      <div style="margin-top:14px;">
+        <label class="field-label">기획자에게 메모 (선택)</label>
+        <textarea class="textarea" id="rmComment" placeholder="예: 강의 자료 사전 공유 부탁드립니다 / 주차 가능한지 확인 부탁드려요" maxlength="200" style="min-height:60px;"></textarea>
+        <div class="field-help">메모는 기획자에게만 전달되며, 자유 협의는 이후 메일로 진행됩니다.</div>
+      </div>
+
+      <div class="action-bar" style="margin-top:14px;">
+        <button class="btn btn-success" style="flex:1.5;" onclick="actionAccept()">✓ 수락하기</button>
+        <button class="btn btn-secondary" style="flex:1;" onclick="openModal('proposeModal')">📅 다른 날짜 제안</button>
+        <button class="btn btn-danger" style="flex:1;" onclick="openModal('rejectModal')">✕ 거절</button>
+      </div>
+    ` : ''}
+  `;
+  openModal('recruitModal');
+}
+
+function actionAccept() {
+  const r = data.recruitments.find(x => x.id === currentRecruitId);
+  const existing = data.schedules[r.scheduleDate];
+  const hasConflict = existing && existing.status === 'confirmed';
+
+  let confirmMsg = '이 섭외를 수락하시겠어요?\n\n수락 시 다음이 자동 진행됩니다:\n• Google Calendar에 일정 등록\n• 기획자 보드에 확정 반영\n• 운영팀에 알림 발송';
+  if (hasConflict) {
+    confirmMsg = `⚠ 일정 충돌\n\n${r.scheduleDate}에 이미 "${existing.label}"이 등록되어 있습니다.\n\n그래도 수락하시겠어요? (이중 예약이 발생할 수 있음)`;
+  }
+  if (!confirm(confirmMsg)) return;
+
+  const comment = (document.getElementById('rmComment') || {}).value || '';
+  r.state = 'Confirmed';
+  r.confirmedAt = '2026-05-17 ' + new Date().toTimeString().slice(0, 5);
+  r.expiresIn = null;
+  r.expiresHours = null;
+  r.acceptComment = comment;
+  data.schedules[r.scheduleDate] = { status: 'confirmed', label: r.courseName.substring(0, 14) };
+  // v4 FR-811: 매칭 서비스에 확정 전파 (강사 발신)
+  _propagateStateChange(r, 'Confirmed', {
+    confirmedAt: new Date().toISOString(),
+    acceptComment: comment,
+    unreadByInstructor: false,
+  });
+  // v4: 캘린더 변경도 전파 (확정 슬롯 추가)
+  _saveInstructorCalendar(_signedInUser && _signedInUser.name, data.schedules);
+  renderRecruits();
+  renderCalendar();
+  closeModal('recruitModal');
+
+  // 수락 결과 모달
+  document.getElementById('acceptResultSub').textContent = `${r.scheduleDate} · ${r.courseName}`;
+  document.getElementById('acceptCommentRow').style.display = comment ? 'flex' : 'none';
+  openModal('acceptResultModal');
+
+  // Google Calendar에 실제 이벤트 등록 (비동기, 결과는 토스트로 후속 알림)
+  _createCalendarEventForAccepted(r).then(ev => {
+    if (ev && ev.htmlLink) toast('Google Calendar에 등록 완료', 'success');
+  });
+}
+
+function sendProposal() {
+  const d1 = document.getElementById('proposeDate1').value;
+  const d2 = document.getElementById('proposeDate2').value;
+  const memo = document.getElementById('proposeMemo').value;
+  if (!d1) { toast('제안 날짜를 최소 1개 입력해주세요', 'error'); return; }
+
+  const r = data.recruitments.find(x => x.id === currentRecruitId);
+  r.state = 'Negotiating';
+  r.proposedDates = [d1, d2].filter(Boolean);
+  r.proposeMemo = memo;
+  // v4 FR-814: 날짜 역제안 → Negotiating 전파
+  _propagateStateChange(r, 'Negotiating', {
+    negotiatedAt: new Date().toISOString(),
+    proposedDates: r.proposedDates,
+    proposeMemo: memo,
+    unreadByInstructor: false,
+  });
+  renderRecruits();
+  closeModal('proposeModal');
+  closeModal('recruitModal');
+  document.getElementById('proposeDate1').value = '';
+  document.getElementById('proposeDate2').value = '';
+  document.getElementById('proposeMemo').value = '';
+  toast(`${[d1, d2].filter(Boolean).join(', ')} 날짜를 제안했어요. 기획자 회신을 기다려주세요`, 'success');
+}
+
+function openOriginalMail(id) {
+  const r = data.recruitments.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('originalMailBody').innerHTML = `
+    <div class="mail-meta">
+      <div class="mail-meta-row"><span>From</span><span>김기획 &lt;planner@instructmatch.com&gt;</span></div>
+      <div class="mail-meta-row"><span>To</span><span>${(_signedInUser?.name || '강사')}님 &lt;${(_signedInUser?.email || 'instructor@example.com')}&gt;</span></div>
+      <div class="mail-meta-row"><span>제목</span><span>[InstructMatch] ${r.companyName} ${r.category} 강의 섭외 요청 (${r.scheduleDate})</span></div>
+      <div class="mail-meta-row"><span>발송</span><span>${r.proposedAt || '2026-05-15 09:24'}</span></div>
+    </div>
+    <div class="mail-body">
+${(_signedInUser?.name || '강사')} 강사님,<br><br>
+안녕하세요. InstructMatch 운영팀 김기획입니다.<br>
+아래와 같이 강의 섭외를 요청드립니다.<br><br>
+<strong>■ 강의 정보</strong><br>
+• 고객사: ${r.companyName}<br>
+• 산업: ${r.industry || '-'}<br>
+• 일정: ${r.scheduleDate} (${r.duration})<br>
+• 대상: ${r.audience || '-'} · ${r.level || '-'}<br>
+• 예산: ${r.budget || '-'}<br>
+• 녹화: ${r.recording ? '필요' : '미녹화'}<br><br>
+<strong>■ 비고</strong><br>
+${r.notes || '-'}<br><br>
+가능 여부를 <strong>강사 포털</strong>에서 확인 후 [수락 / 거절 / 다른 날짜 제안] 중 선택해주세요.<br>
+포털: <u>https://portal.instructmatch.com</u><br><br>
+수락하시면 본 강사님 Google Calendar에 자동으로 일정이 등록되며, 이후 강의안·계약서는 별도로 안내드리겠습니다.<br><br>
+감사합니다.<br>
+— InstructMatch 운영팀
+    </div>
+    <div style="margin-top:10px; font-size:12px; color:var(--slate-500);">
+      ※ 이 메일은 자동 발송되었습니다. 답장 대신 포털에서 응답해주시면 더 빠르게 처리됩니다.
+    </div>
+  `;
+  openModal('originalMailModal');
+}
+
+function actionReview() {
+  const r = data.recruitments.find(x => x.id === currentRecruitId);
+  r.state = 'Negotiating';
+  // v4 FR-812: 검토중 → Negotiating 전파
+  _propagateStateChange(r, 'Negotiating', {
+    negotiatedAt: new Date().toISOString(),
+    unreadByInstructor: false,
+  });
+  renderRecruits();
+  closeModal('recruitModal');
+  toast('검토 중으로 상태가 변경되었습니다', 'success');
+}
+
+function confirmReject() {
+  const reason = document.getElementById('rejectReason').value;
+  const r = data.recruitments.find(x => x.id === currentRecruitId);
+  r.state = 'Rejected';
+  r.rejectedAt = '2026-05-17';
+  r.reason = reason;
+  r.expiresIn = null;
+  if (data.schedules[r.scheduleDate] && data.schedules[r.scheduleDate].status === 'soft_lock') {
+    delete data.schedules[r.scheduleDate];
+  }
+  // v4 FR-813: 거절 → Rejected 전파 (사유 선택사항 — accaa 결정 6번 ⓐ)
+  _propagateStateChange(r, 'Rejected', {
+    rejectedAt: new Date().toISOString(),
+    rejectionReason: reason || null,
+    unreadByInstructor: false,
+  });
+  // v4: 캘린더 변경도 전파 (soft_lock 해제)
+  _saveInstructorCalendar(_signedInUser && _signedInUser.name, data.schedules);
+  renderRecruits();
+  renderCalendar();
+  closeModal('rejectModal');
+  closeModal('recruitModal');
+  document.getElementById('rejectReason').value = '';
+  toast('섭외를 거절했습니다', 'success');
+}
+
+// =============== 프로필 ===============
+function renderCategories() {
+  const grid = document.getElementById('categoryGrid');
+  const max = 5;
+  grid.innerHTML = data.categories.map(c => {
+    const selected = data.selectedCategories.includes(c);
+    const disabled = !selected && data.selectedCategories.length >= max;
+    return `<button class="chip ${selected ? 'selected' : ''}" ${disabled ? 'disabled' : ''} onclick="toggleCategory('${c}')">${c}</button>`;
+  }).join('');
+  document.getElementById('catCount').textContent = `${data.selectedCategories.length} / 5 선택됨`;
+}
+
+function toggleCategory(c) {
+  const idx = data.selectedCategories.indexOf(c);
+  if (idx >= 0) data.selectedCategories.splice(idx, 1);
+  else if (data.selectedCategories.length < 5) data.selectedCategories.push(c);
+  renderCategories();
+  showSaveStatus();
+}
+
+function renderHistory() {
+  const container = document.getElementById('historyList');
+  if (data.history.length === 0) {
+    container.innerHTML = '<div style="text-align:center; padding:32px; color:var(--slate-400);">강의 이력을 추가해주세요</div>';
+    return;
+  }
+  container.innerHTML = data.history.map(h => `
+    <div class="history-item">
+      <input class="input" value="${h.companyName}" placeholder="고객사명" onchange="updateHistory(${h.id}, 'companyName', this.value)">
+      <input class="input" value="${h.courseName}" placeholder="과정명" onchange="updateHistory(${h.id}, 'courseName', this.value)">
+      <select class="select" onchange="updateHistory(${h.id}, 'category', this.value)">
+        ${data.categories.map(c => `<option ${c === h.category ? 'selected' : ''}>${c}</option>`).join('')}
+      </select>
+      <input class="input" type="number" value="${h.year}" min="2000" max="2030" onchange="updateHistory(${h.id}, 'year', parseInt(this.value))">
+      <button class="history-delete" onclick="deleteHistory(${h.id})">🗑</button>
+    </div>
+  `).join('');
+}
+
+function addHistory() {
+  const newId = Math.max(0, ...data.history.map(h => h.id)) + 1;
+  data.history.push({ id: newId, companyName: '', courseName: '', category: data.categories[0], year: 2026 });
+  renderHistory();
+  showSaveStatus();
+}
+
+function updateHistory(id, field, value) {
+  const h = data.history.find(x => x.id === id);
+  if (h) { h[field] = value; showSaveStatus(); }
+}
+
+function deleteHistory(id) {
+  data.history = data.history.filter(h => h.id !== id);
+  renderHistory();
+  showSaveStatus();
+}
+
+let saveTimer;
+function showSaveStatus() {
+  const el = document.getElementById('saveStatus');
+  el.textContent = '저장 중...';
+  el.style.color = 'var(--slate-500)';
+  el.style.display = 'block';
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    el.textContent = '✓ 저장됨 (방금 전)';
+    el.style.color = 'var(--emerald-700)';
+    setTimeout(() => { el.style.display = 'none'; }, 3000);
+  }, 600);
+}
+
+// =============== 캘린더 동기화 (Google Calendar API: events.list) ===============
+async function syncCalendar(silent) {
+  if (DEMO_MODE) {
+    if (!silent) toast('데모 모드: 실제 Google Calendar 연동이 비활성화되어 있습니다', 'info');
+    setTimeout(() => { if (!silent) toast('동기화 완료 (가짜 데이터) · 2개 일정', 'success'); }, 600);
+    return;
+  }
+  if (!gapi.client || !gapi.client.getToken()) {
+    toast('Google 로그인이 필요합니다', 'error');
+    return;
+  }
+  if (!silent) toast('Google Calendar 동기화 중...', 'info');
+  try {
+    const timeMin = new Date();
+    timeMin.setMonth(timeMin.getMonth() - 1);
+    const timeMax = new Date();
+    timeMax.setMonth(timeMax.getMonth() + 3);
+    const resp = await gapi.client.calendar.events.list({
+      calendarId: 'primary',
+      timeMin: timeMin.toISOString(),
+      timeMax: timeMax.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime',
+      maxResults: 250,
+    });
+    const items = resp.result.items || [];
+    let added = 0;
+    items.forEach(ev => {
+      const startStr = ev.start && (ev.start.date || (ev.start.dateTime ? ev.start.dateTime.slice(0, 10) : null));
+      if (!startStr) return;
+      const cur = data.schedules[startStr];
+      // 포털이 관리하는 확정/Soft Lock 일정은 덮어쓰지 않음
+      if (cur && (cur.status === 'confirmed' || cur.status === 'soft_lock')) return;
+      data.schedules[startStr] = {
+        status: 'unavailable',
+        label: ev.summary || 'Google Calendar 일정',
+        _fromGoogle: true,
+      };
+      added++;
+    });
+    renderCalendar();
+    toast('동기화 완료 · ' + added + '개 일정을 가져왔어요', 'success');
+  } catch (err) {
+    console.error(err);
+    const msg = (err.result && err.result.error && err.result.error.message) || err.message || '알 수 없는 오류';
+    toast('Google Calendar 동기화 실패: ' + msg, 'error');
+  }
+}
+
+// =============== 수락 시 Google Calendar에 일정 등록 (events.insert) ===============
+async function _createCalendarEventForAccepted(r) {
+  if (DEMO_MODE || !gapi.client || !gapi.client.getToken()) return null;
+  try {
+    const hourMatch = (r.duration || '').match(/(\d+)\s*시간/);
+    const hours = hourMatch ? parseInt(hourMatch[1], 10) : 2;
+    const startISO = r.scheduleDate + 'T09:00:00+09:00';
+    const endDate = new Date(startISO);
+    endDate.setHours(endDate.getHours() + hours);
+    const event = {
+      summary: '[강의] ' + r.companyName + ' · ' + r.courseName,
+      description:
+        'InstructMatch 포털에서 수락된 강의\n' +
+        '카테고리: ' + (r.category || '-') + '\n' +
+        '대상: ' + (r.audience || '-') + '\n' +
+        '예산: ' + (r.budget || '-'),
+      start: { dateTime: startISO, timeZone: 'Asia/Seoul' },
+      end: { dateTime: endDate.toISOString(), timeZone: 'Asia/Seoul' },
+      reminders: { useDefault: true },
+    };
+    const resp = await gapi.client.calendar.events.insert({ calendarId: 'primary', resource: event });
+    return resp.result;
+  } catch (e) {
+    console.error('Calendar insert failed', e);
+    const msg = (e.result && e.result.error && e.result.error.message) || e.message || '알 수 없는 오류';
+    toast('Google Calendar 등록 실패: ' + msg, 'error');
+    return null;
+  }
+}
+
+// =============== 모달 ===============
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.active').forEach(m => m.classList.remove('active'));
+});
+
+// =============== 토스트 ===============
+function toast(msg, type = 'info') {
+  const div = document.createElement('div');
+  div.className = 'toast ' + type;
+  div.textContent = msg;
+  document.getElementById('toastContainer').appendChild(div);
+  setTimeout(() => { div.style.opacity = '0'; div.style.transition = 'opacity 0.3s'; setTimeout(() => div.remove(), 300); }, 2800);
+}
+
+// =============== 초기화 ===============
+function renderAll() {
+  renderSummary();
+  renderUpcoming();
+  renderCalendar();
+  renderRecruits();
+  renderCategories();
+  renderHistory();
+}
+
+function renderSummary() {
+  const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+  const proposed = data.recruitments.filter(r => r.state === 'Proposed').length;
+  const negotiating = data.recruitments.filter(r => r.state === 'Negotiating').length;
+  const ym = `${data.calendar.year}-${String(data.calendar.month).padStart(2, '0')}`;
+  const confirmedThisMonth = data.recruitments.filter(r => r.state === 'Confirmed' && r.scheduleDate && r.scheduleDate.startsWith(ym)).length;
+  setText('sumProposed', proposed);
+  setText('sumNegotiating', negotiating);
+  setText('sumConfirmedThisMonth', confirmedThisMonth);
+}
+</script>
+
+</body>
+</html>
