@@ -1630,7 +1630,11 @@ function _adaptThreadToRecruit(thread) {
     updatedAt: thread.updated_at,
     _fromSupabase: true,
     _supabaseThreadId: thread.id,
-    _operatorName: thread.operator_name || ''
+    _operatorName: thread.operator_name || '',
+    // v4.3 B-505.6 / B-520 — 기획자 인사말 · 특이사항 · 커리큘럼 첨부
+    greetingText: thread.greeting_text || '',
+    plannerNote: thread.planner_note || '',
+    attachments: Array.isArray(thread.attachments) ? thread.attachments : []
   };
 }
 
@@ -2244,6 +2248,27 @@ function openRecruit(id) {
         <div class="info-row"><div class="info-label">예산 범위</div><div class="info-value">${r.budget || '-'}</div></div>
         <div class="info-row"><div class="info-label">녹화 여부</div><div class="info-value">${r.recording ? '<span class="badge badge-warning">녹화 필요</span>' : '미녹화'}</div></div>
         <div class="info-row"><div class="info-label">비고</div><div class="info-value" style="font-size:13px; color:var(--slate-600);">${r.notes || '-'}</div></div>
+        ${r.greetingText ? `
+          <div style="margin-top:14px; padding:14px 16px; background:var(--brand-50); border-radius:10px;">
+            <div style="font-size:12px; font-weight:700; color:var(--brand-700); margin-bottom:6px;">💬 기획자 인사말</div>
+            <div style="font-size:14px; color:var(--slate-800); line-height:1.6; white-space:pre-wrap;">${escapeHTML(r.greetingText)}</div>
+          </div>
+        ` : ''}
+        ${r.plannerNote ? `
+          <div style="margin-top:10px; padding:14px 16px; background:var(--indigo-50); border-radius:10px;">
+            <div style="font-size:12px; font-weight:700; color:var(--indigo-700); margin-bottom:6px;">📝 특이사항</div>
+            <div style="font-size:14px; color:var(--slate-800); line-height:1.6; white-space:pre-wrap;">${escapeHTML(r.plannerNote)}</div>
+          </div>
+        ` : ''}
+        ${(r.attachments && r.attachments.length) ? `
+          <div style="margin-top:10px; padding:14px 16px; background:var(--slate-50); border:1px solid var(--slate-200); border-radius:10px;">
+            <div style="font-size:12px; font-weight:700; color:var(--slate-700); margin-bottom:8px;">📎 커리큘럼 첨부 (${r.attachments.length}개)</div>
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              ${r.attachments.map(_renderAttachmentBtn).join('')}
+            </div>
+            <div style="font-size:11px; color:var(--slate-400); margin-top:8px;">※ 다운로드 링크는 7일간 유효합니다</div>
+          </div>
+        ` : ''}
         <div style="margin-top:14px;">
           <button class="btn btn-ghost btn-sm" onclick="openOriginalMail('${r.id}')">📧 원본 섭외 메일 다시 보기</button>
         </div>
@@ -2588,6 +2613,39 @@ function closeModal(id) { document.getElementById(id).classList.remove('active')
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') document.querySelectorAll('.modal-backdrop.active').forEach(m => m.classList.remove('active'));
 });
+
+// =============== v4.3 B-505.6 / B-520 — 인사말·특이사항·첨부 헬퍼 (2026-05-21 추가) ===
+function escapeHTML(s) {
+  if (s == null) return '';
+  return String(s).replace(/[&<>"']/g, function(c){
+    return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+  });
+}
+function _formatAttachmentSize(bytes) {
+  if (!bytes) return '?';
+  if (bytes > 1024 * 1024) return (bytes / 1024 / 1024).toFixed(1) + 'MB';
+  return (bytes / 1024).toFixed(0) + 'KB';
+}
+function _renderAttachmentBtn(a) {
+  var name = escapeHTML(a.filename || '파일');
+  var path = (a.path || '').replace(/'/g, "\\'");
+  var fn = (a.filename || '').replace(/'/g, "\\'");
+  var sizeStr = _formatAttachmentSize(a.size_bytes);
+  return '<button class="btn btn-secondary btn-sm" style="justify-content:flex-start; gap:8px; width:100%;" onclick="openAttachment(\'' + path + '\', \'' + fn + '\')">📄 ' + name + ' <span style="font-size:11px; color:var(--slate-500); margin-left:auto;">' + sizeStr + '</span></button>';
+}
+async function openAttachment(path, filename) {
+  try {
+    if (!supabaseClient) throw new Error('Supabase 미연결');
+    const { data, error } = await supabaseClient
+      .storage.from('curriculum-attachments')
+      .createSignedUrl(path, 7 * 24 * 3600);
+    if (error) throw error;
+    window.open(data.signedUrl, '_blank');
+  } catch (e) {
+    toast('첨부 열기 실패: ' + (e.message || e), 'error');
+  }
+}
+// =============== /v4.3 헬퍼 끝 ===
 
 // =============== 토스트 ===============
 function toast(msg, type = 'info') {
