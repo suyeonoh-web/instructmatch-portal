@@ -2341,6 +2341,22 @@ function actionAccept() {
   });
   // v4: 캘린더 변경도 전파 (확정 슬롯 추가)
   _saveInstructorCalendar(_signedInUser && _signedInUser.name, data.schedules);
+
+  // === v4.3 — 강사가 수락한 일정을 Supabase calendar_events에 INSERT ===
+  // 기획자(v6.html)는 calendar_events INSERT를 Realtime 구독해서 '🗓 강사 캘린더 등록' 토스트로 받음.
+  // type='confirmed' source='operator' 규약 (강사 본인이 누른 수락은 operator 시점에 박힌 일정으로 간주).
+  if (IS_SUPABASE_MODE && _signedInUser && _signedInUser.calendar_id) {
+    supabaseClient.from('calendar_events').insert({
+      calendar_id: _signedInUser.calendar_id,
+      date: r.scheduleDate,
+      type: 'confirmed',
+      source: 'operator',
+      title: r.courseName || '(과정명 미상)',
+      note: comment || null
+    }).then(function(res){
+      if (res.error) console.error('[v4.3] calendar_events INSERT 실패:', res.error);
+    });
+  }
   renderRecruits();
   renderCalendar();
   closeModal('recruitModal');
